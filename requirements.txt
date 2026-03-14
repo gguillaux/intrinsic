@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+dash
+dash-bootstrap-components
+sqlmodel
+pandas
+requests
+requests-cache
+beautifulsoup4
+python-dotenv
+apscheduler
