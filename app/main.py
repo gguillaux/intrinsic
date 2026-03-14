@@ -1,6 +1,7 @@
 import logging
 from fastapi import FastAPI
 from dash import Dash
+from flask import Flask
 from starlette.middleware.wsgi import WSGIMiddleware
 import dash_bootstrap_components as dbc
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -29,9 +30,10 @@ def health():
 
 # Dash App
 # Create a Flask app instance for Dash
+flask_server = Flask(__name__)
 dash_app = Dash(
-    __name__, 
-    server=False, # Set server to False for external WSGI server
+    __name__,
+    server=flask_server,
     url_base_pathname="/dash/", # Dash app will be served under /dash/
     external_stylesheets=[dbc.themes.FLATLY]
 )
@@ -39,7 +41,7 @@ dash_app = Dash(
 dash_app.layout = create_layout()
 
 # Mount the Dash app's Flask server onto the FastAPI app
-server.mount("/dash", app=WSGIMiddleware(dash_app.server))
+server.mount("/dash", app=WSGIMiddleware(flask_server))
 
 # Scheduler
 scheduler = BackgroundScheduler()
