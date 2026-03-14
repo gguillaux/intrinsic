@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from sqlmodel import Field, SQLModel, create_all
+from sqlmodel import Field, SQLModel
 
 class News(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)

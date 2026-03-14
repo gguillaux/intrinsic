@@ -41,4 +41,16 @@ Para começar a utilizar as ferramentas e análises deste repositório, siga est
 Se você adora valor intrínseco tanto quanto nós e quer ajudar a aprimorar nossas análises, sinta-se à vontade para abrir uma *Pull Request*! 🌟
 
 *Lembre-se: A paciência e a análise rigorosa são as maiores ferramentas de um investidor.* 🧘‍♂️
+## 🧪 Debugging Frontend with Playwright (Local MVP)
+
+Para debugging do frontend Dash embarcado no FastAPI, adicionamos um MVP com Playwright (Python) para abrir o app no navegador, capturar o html, screenshots e console logs.
+
+- Como usar:
+  1) Instale dependências: `pip install playwright` e rode `python -m playwright install` para baixar os browsers.
+  2) Rode o servidor do app localmente (ex.: `uvicorn app.main:server --host 0.0.0.0 --port 8000`).
+  3) Rode o debug local:
+     - `make -f Makefile.playwright debug-dash` (ou execute o script diretamente: `python tools/playwright_debug/run_dash_debug.py`).
+  4) Verifique a pasta `debug_dash/` para conteúdos HTML, screenshots e logs de console.
+
+Observação: este é um MVP para diagnóstico local. Em produção/CI, recomenda-se integrar com o seu pipeline de CI para capturar falhas automaticamente.
 

@@ -1,0 +1,6 @@
+# Small helper to run Playwright debugging locally
+.PHONY: debug-dash
+debug-dash:
+	@python3 -m pip install --user playwright || true
+ 	@python3 -m playwright install || true
+ 	@python3 tools/playwright_debug/run_dash_debug.py
