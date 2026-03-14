@@ -34,7 +34,7 @@ flask_server = Flask(__name__)
 dash_app = Dash(
     __name__,
     server=flask_server,
-    url_base_pathname="/dash/", # Dash app will be served under /dash/
+    url_base_pathname="/", # Dash app will be served at Flask root; mounted under /dash in FastAPI
     external_stylesheets=[dbc.themes.FLATLY]
 )
 
