@@ -1,0 +1,13 @@
+https://statusinvest.com.br/bdr/indicatorhistoricallist
+https://statusinvest.com.br/reit/indicatorhistoricallist
+https://statusinvest.com.br/stock/indicatorhistoricallist
+https://statusinvest.com.br/acao/indicatorhistoricallist
+
+https://sistemasweb.b3.com.br/PlantaoNoticias/Noticias/ListarTitulosNoticias?agencia=18&palavra=&dataInicial=2026-03-13&dataFinal=2026-03-13
+https://sistemasweb.b3.com.br/PlantaoNoticias/Noticias/Detail?idNoticia=3278637&agencia=18&dataNoticia=2026-03-13%2019:59:56
+
+https://www.fundamentus.com.br/detalhes.php?papel=ABEV3
+https://investidor10.com.br/acoes/scar3/
+https://ranaroussi.github.io/yfinance/
+https://ranaroussi.github.io/yfinance/reference/index.html
+https://github.com/ranaroussi/yfinance
