@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const dataSection = document.getElementById('data-section');
     const filtersContainer = document.getElementById('filters-container');
     const newsDatePicker = document.getElementById('news-date-picker');
+    const newsTypeFilter = document.getElementById('news-type-filter');
     const themeToggleBtn = document.getElementById('theme-toggle-btn');
     
     const manualAssetsSection = document.getElementById('manual-assets-section');
@@ -25,6 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentTab = 'br-stocks';
     let currentData = [];
+    let currentSort = { column: null, asc: true };
+    let currentNewsType = '';
 
     const TAB_CONFIG = {
         'br-stocks': { title: 'BR Stocks', subtitle: 'Focus on High FCF, EPS, low Debt, P/E, and PEG < 1', type: 'stock' },
@@ -92,6 +95,13 @@ document.addEventListener('DOMContentLoaded', () => {
             loadTabData(currentTab);
         });
 
+        if (newsTypeFilter) {
+            newsTypeFilter.addEventListener('change', (e) => {
+                currentNewsType = e.target.value.toLowerCase();
+                renderTableBody(currentData, TAB_CONFIG[currentTab].type);
+            });
+        }
+
         searchInput.addEventListener('input', (e) => {
             const term = e.target.value.toLowerCase();
             const filtered = currentData.filter(item => {
@@ -143,9 +153,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (tabId === 'market-news') {
             newsDatePicker.style.display = 'block';
+            if (newsTypeFilter) newsTypeFilter.style.display = 'block';
             if (manualAssetsSection) manualAssetsSection.style.display = 'none';
         } else {
             newsDatePicker.style.display = 'none';
+            if (newsTypeFilter) newsTypeFilter.style.display = 'none';
         }
 
         if (tabId === 'br-stocks' || tabId === 'us-stocks') {
@@ -158,6 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loader.style.display = 'flex';
         tableBody.innerHTML = '';
         searchInput.value = '';
+        currentSort = { column: null, asc: true };
 
         try {
             renderTableHeaders(config.type);
@@ -169,7 +182,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             currentData = data;
             
-            renderTableBody(data, config.type);
+            if (currentSort.column) sortData();
+            renderTableBody(currentData, config.type);
             tableContainer.style.display = 'block';
         } catch (error) {
             tableBody.innerHTML = `<tr><td colspan="10" class="bad-metric" style="text-align: center;">Error fetching data: ${error.message}</td></tr>`;
@@ -180,13 +194,74 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderTableHeaders(type) {
+        const getIcon = (col) => {
+            if (currentSort.column !== col) return '';
+            return currentSort.asc ? ' <span class="sort-icon">▲</span>' : ' <span class="sort-icon">▼</span>';
+        };
+
         if (type === 'stock') {
-            tableHeaderRow.innerHTML = `<th>Ticker / Name</th><th>Price</th><th>FCF</th><th>EPS</th><th>Debt</th><th>P/E</th><th>PEG</th>`;
+            tableHeaderRow.innerHTML = `
+                <th data-sort="ticker">Ticker / Name${getIcon('ticker')}</th>
+                <th data-sort="price">Price${getIcon('price')}</th>
+                <th data-sort="fcf">FCF${getIcon('fcf')}</th>
+                <th data-sort="eps">EPS${getIcon('eps')}</th>
+                <th data-sort="debt">Debt${getIcon('debt')}</th>
+                <th data-sort="pe">P/E${getIcon('pe')}</th>
+                <th data-sort="peg">PEG${getIcon('peg')}</th>
+            `;
         } else if (type === 'reit') {
-            tableHeaderRow.innerHTML = `<th>Ticker / Name</th><th>Price</th><th>Div. Yield</th><th>P/VPA</th>`;
+            tableHeaderRow.innerHTML = `
+                <th data-sort="ticker">Ticker / Name${getIcon('ticker')}</th>
+                <th data-sort="price">Price${getIcon('price')}</th>
+                <th data-sort="dividend_yield">Div. Yield${getIcon('dividend_yield')}</th>
+                <th data-sort="p_vpa">P/VPA${getIcon('p_vpa')}</th>
+            `;
         } else if (type === 'news') {
-            tableHeaderRow.innerHTML = `<th>Published At</th><th>Source</th><th>Headline</th><th>Link</th>`;
+            tableHeaderRow.innerHTML = `
+                <th data-sort="published_at">Date${getIcon('published_at')}</th>
+                <th data-sort="published_at">Time${getIcon('published_at')}</th>
+                <th data-sort="title">Asset${getIcon('title')}</th>
+                <th data-sort="title">Headline / Type${getIcon('title')}</th>
+            `;
         }
+        attachSortListeners();
+    }
+
+    function attachSortListeners() {
+        const headers = document.querySelectorAll('th[data-sort]');
+        headers.forEach(th => {
+            th.style.cursor = 'pointer';
+            th.addEventListener('click', () => {
+                const column = th.dataset.sort;
+                if (currentSort.column === column) {
+                    currentSort.asc = !currentSort.asc;
+                } else {
+                    currentSort.column = column;
+                    currentSort.asc = true;
+                }
+                sortData();
+                renderTableHeaders(TAB_CONFIG[currentTab].type);
+                renderTableBody(currentData, TAB_CONFIG[currentTab].type);
+            });
+        });
+    }
+
+    function sortData() {
+        if (!currentSort.column) return;
+        currentData.sort((a, b) => {
+            let valA = a[currentSort.column];
+            let valB = b[currentSort.column];
+            
+            if (valA === null || valA === undefined) return currentSort.asc ? 1 : -1;
+            if (valB === null || valB === undefined) return currentSort.asc ? -1 : 1;
+            
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
+            
+            if (valA < valB) return currentSort.asc ? -1 : 1;
+            if (valA > valB) return currentSort.asc ? 1 : -1;
+            return 0;
+        });
     }
 
     function renderTableBody(data, type) {
@@ -207,11 +282,65 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const rows = data.map(item => {
             if (type === 'news') {
+                let datePart = '', timePart = '';
+                const pub = item.published_at || '';
+                if (pub.includes('T')) {
+                    datePart = pub.split('T')[0];
+                    timePart = pub.split('T')[1].split('.')[0];
+                } else if (pub.includes(' ')) {
+                    datePart = pub.split(' ')[0];
+                    timePart = pub.split(' ')[1].split('.')[0];
+                }
+                
+                let formattedDate = datePart;
+                if (datePart) {
+                    const parts = datePart.split('-');
+                    if (parts.length === 3) formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                }
+
+                let asset = '-';
+                let headlineStr = item.title || "";
+                
+                // Advanced parsing for B3 News titles
+                // Regex matches (TICKER) capturing TICKER cleanly
+                const tickerMatch = headlineStr.match(/\(([A-Z0-9]+)\)/);
+                if (tickerMatch) {
+                    asset = tickerMatch[1]; // WHGR
+                    // Remove the ticker part from the headline
+                    headlineStr = headlineStr.replace(tickerMatch[0], '').replace(/\s+/g, ' ').trim();
+                }
+
+                // Split by " - " to separate Company Name and News Type/Date
+                const dashParts = headlineStr.split(' - ');
+                let companyName = dashParts[0].trim();
+                let newsType = dashParts.length > 1 ? dashParts.slice(1).join(' - ').trim() : '';
+
+                // Clean trailing date/time from the newsType 
+                // Matches patterns like " 12/03/2026", "- 12/03/2026 09:00", etc at the end
+                newsType = newsType.replace(/\s*-?\s*\d{2}\/\d{2}\/\d{4}(\s+\d{2}:\d{2})?\s*$/, '').trim();
+
+                // Fallback: if there was no dash, the whole thing might be the company name, or just news
+                let finalHeadline = '';
+                if (newsType) {
+                    finalHeadline = `${companyName} - ${newsType}`;
+                } else {
+                    finalHeadline = companyName;
+                    // Try to guess news type from finalHeadline if needed, or leave it
+                    newsType = companyName; // purely for fallback filtering
+                }
+                
+                // Filtering Logic
+                if (currentNewsType && currentNewsType !== '') {
+                    if (!newsType.toLowerCase().includes(currentNewsType)) {
+                        return ''; // Skip this row
+                    }
+                }
+
                 return `<tr>
-                    <td style="white-space:nowrap">${item.published_at.split('.')[0]}</td>
-                    <td style="color:var(--accent-hover)">[${item.source}]</td>
-                    <td style="font-weight:bold">${item.title}</td>
-                    <td><a href="${item.link}" target="_blank" style="color:var(--success); text-decoration:underline;">READ_</a></td>
+                    <td style="white-space:nowrap">${formattedDate}</td>
+                    <td style="white-space:nowrap">${timePart}</td>
+                    <td style="font-weight:bold; color:var(--text-secondary)">${asset}</td>
+                    <td><a href="${item.link}" target="_blank" style="color:var(--text-primary); text-decoration:underline;">${finalHeadline}</a></td>
                 </tr>`;
             }
 
