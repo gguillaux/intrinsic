@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intrinsic - Valuation Dashboard</title>
+    <link rel="stylesheet" href="index.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar / Navigation -->
+        <aside class="sidebar">
+            <div class="logo">
+                <h2>Intrinsic</h2>
+                <span class="badge">Pro</span>
+            </div>
+            
+            <nav class="nav-menu">
+                <div class="nav-section-title">EQUITIES</div>
+                <button class="nav-item active" data-tab="br-stocks">
+                    <span class="icon">🇧🇷</span> BR Stocks (Ações)
+                </button>
+                <button class="nav-item" data-tab="us-stocks">
+                    <span class="icon">🇺🇸</span> US Stocks
+                </button>
+
+                <div class="nav-section-title mt-4">REAL ESTATE</div>
+                <button class="nav-item" data-tab="br-fiis">
+                    <span class="icon">🏢</span> BR FIIs
+                </button>
+                <button class="nav-item" data-tab="us-reits">
+                    <span class="icon">🏬</span> US REITs
+                </button>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="top-header">
+                <div class="header-titles">
+                    <h1 id="page-title">BR Stocks (Ações)</h1>
+                    <p class="subtitle" id="page-subtitle">Focus on high FCF, EPS, low Debt, P/E, and PEG < 1</p>
+                </div>
+                
+                <div class="filters-container">
+                    <div class="search-box">
+                        <input type="text" id="search-input" placeholder="Search ticker or name...">
+                    </div>
+                    <button class="btn btn-primary" id="refresh-btn">Refresh Data</button>
+                </div>
+            </header>
+
+            <!-- Data Table -->
+            <section class="data-section">
+                <div class="table-container">
+                    <table id="valuation-table">
+                        <thead>
+                            <tr id="table-header-row">
+                                <!-- Headers injected via JS based on selected tab -->
+                            </tr>
+                        </thead>
+                        <tbody id="table-body">
+                            <!-- Rows injected via JS -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Loading State -->
+                <div id="loader" class="loader-container">
+                    <div class="spinner"></div>
+                    <p>Fetching market data...</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
