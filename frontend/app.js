@@ -17,6 +17,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const filtersContainer = document.getElementById('filters-container');
     const newsDatePicker = document.getElementById('news-date-picker');
     const themeToggleBtn = document.getElementById('theme-toggle-btn');
+    
+    const manualAssetsSection = document.getElementById('manual-assets-section');
+    const manualAssetsCheckbox = document.getElementById('manual-assets-checkbox');
+    const manualAssetsContainer = document.getElementById('manual-assets-input-container');
+    const manualAssetsTextarea = document.getElementById('manual-assets-textarea');
 
     let currentTab = 'br-stocks';
     let currentData = [];
@@ -31,8 +36,17 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     function getEndpoint(tabId) {
-        if (tabId === 'br-stocks') return `/stocks/br?index=${indexSelect.value}`;
-        if (tabId === 'us-stocks') return `/stocks/us`;
+        let manualTickers = '';
+        if ((tabId === 'br-stocks' || tabId === 'us-stocks') && manualAssetsCheckbox && manualAssetsCheckbox.checked) {
+            manualTickers = manualAssetsTextarea.value.trim().split(/[\s,]+/).filter(x => x).join(',');
+        }
+
+        if (tabId === 'br-stocks') {
+            return manualTickers ? `/stocks/br?tickers=${manualTickers}` : `/stocks/br?index=${indexSelect.value}`;
+        }
+        if (tabId === 'us-stocks') {
+            return manualTickers ? `/stocks/us?tickers=${manualTickers}` : `/stocks/us`;
+        }
         if (tabId === 'br-fiis') return `/fiis/br`;
         if (tabId === 'us-reits') return `/reits/us`;
         if (tabId === 'market-news') {
@@ -98,6 +112,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
+
+        if (manualAssetsCheckbox) {
+            manualAssetsCheckbox.addEventListener('change', (e) => {
+                if (manualAssetsContainer) {
+                    manualAssetsContainer.style.display = e.target.checked ? 'block' : 'none';
+                }
+            });
+        }
     }
 
     async function loadTabData(tabId) {
@@ -111,6 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
             configSection.style.display = 'block';
             dataSection.style.display = 'none';
             filtersContainer.style.display = 'none';
+            if (manualAssetsSection) manualAssetsSection.style.display = 'none';
             return;
         } else {
             configSection.style.display = 'none';
@@ -120,8 +143,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (tabId === 'market-news') {
             newsDatePicker.style.display = 'block';
+            if (manualAssetsSection) manualAssetsSection.style.display = 'none';
         } else {
             newsDatePicker.style.display = 'none';
+        }
+
+        if (tabId === 'br-stocks' || tabId === 'us-stocks') {
+            if (manualAssetsSection) manualAssetsSection.style.display = 'block';
+        } else {
+            if (manualAssetsSection) manualAssetsSection.style.display = 'none';
         }
 
         tableContainer.style.display = 'none';

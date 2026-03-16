@@ -25,22 +25,29 @@ BR_FIIS = ["HGLG11.SA", "MXRF11.SA", "KNRI11.SA", "XPLG11.SA"]
 US_REITS = ["O", "SPG", "PLD", "VNQ"]
 
 @router.get("/stocks/br", response_model=List[ValuationMetric])
-async def get_br_stocks(index: str = "IBOV"):
+async def get_br_stocks(index: str = "IBOV", tickers: Optional[str] = None):
     # Run synchronously in threadpool to avoid blocking event loop
     loop = asyncio.get_event_loop()
-    comp = get_index_composition(index)
-    if comp:
-        tickers = [item["ticker"] for item in comp]
+    if tickers:
+        ticker_list = [t.strip().upper() for t in tickers.split(",") if t.strip()]
     else:
-        tickers = BR_STOCKS
-    tasks = [loop.run_in_executor(None, fetch_stock_metrics, t) for t in tickers]
+        comp = get_index_composition(index)
+        if comp:
+            ticker_list = [item["ticker"] for item in comp]
+        else:
+            ticker_list = BR_STOCKS
+    tasks = [loop.run_in_executor(None, fetch_stock_metrics, t) for t in ticker_list]
     results = await asyncio.gather(*tasks)
     return results
 
 @router.get("/stocks/us", response_model=List[ValuationMetric])
-async def get_us_stocks():
+async def get_us_stocks(tickers: Optional[str] = None):
     loop = asyncio.get_event_loop()
-    tasks = [loop.run_in_executor(None, fetch_stock_metrics, t) for t in US_STOCKS]
+    if tickers:
+        ticker_list = [t.strip().upper() for t in tickers.split(",") if t.strip()]
+    else:
+        ticker_list = US_STOCKS
+    tasks = [loop.run_in_executor(None, fetch_stock_metrics, t) for t in ticker_list]
     results = await asyncio.gather(*tasks)
     return results
 
@@ -64,7 +71,7 @@ from ..services.news_service import fetch_and_store_news
 from ..services.index_service import get_all_indices, get_index_composition
 
 @router.get("/news")
-async def get_news(date: str = None):
+async def get_news(date: Optional[str] = None):
     # Feeds from DB cache or fresh scrape
     return fetch_and_store_news(date)
 

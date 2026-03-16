@@ -34,10 +34,13 @@ We further refined the application with the following V2.1 enhancements:
    - The B3 Indices tab now acts as a pure configuration screen. Selecting an index (like IFIX) instantly redirects you to the BR Stocks tab, which now correctly queries the backend to display *only* the tickers belonging to that specific index.
    - We completely replaced `yfinance` with a robust **Status Invest** parsing integration. `yfinance` was consistently returning `null` data for Brazilian fundamental indicators (FCF, EPS, Debt, P/E, PEG). The App now queries Status Invest's historical API directly to guarantee 100% accurate data for Brazilian Equities.
 
-## Live Demo & Verification
-The application is fully functional. The subagent tested the new Status Invest parsed tables and the new Dark/Light retro terminal toggle in action:
+4. **Dynamic External Asset Injector (Manual Mode)**
+   - Included a toggle "Informar Ativos Manualmente", exposing a multi-ticker free-text area. This allows the user to specify comma-separated custom symbols on-the-fly without relying on an Index.
 
-![V2.1 Status Invest Data Validation](/home/ggx/.gemini/antigravity/brain/74bd31ec-d161-45ea-97dc-22eb0e5b1dd9/br_stocks_filled_data_1773631962933.webp)
+## Live Demo & Verification
+The application is fully functional. The subagent tested the new manual input box injection feature for arbitrary lists of indicators:
+
+![V2.1 Manual Input Ticker Flow](/home/ggx/.gemini/antigravity/brain/74bd31ec-d161-45ea-97dc-22eb0e5b1dd9/manual_ticker_test_1773632460152.webp)
 
 ## How to run it locally
 To start the application yourself, you need to start the API and the web server:
