@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const dataSection = document.getElementById('data-section');
     const filtersContainer = document.getElementById('filters-container');
     const newsDatePicker = document.getElementById('news-date-picker');
+    const themeToggleBtn = document.getElementById('theme-toggle-btn');
 
     let currentTab = 'br-stocks';
     let currentData = [];
@@ -49,6 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Initialize
+    document.body.classList.add('theme-dark'); // set default theme
     bindEvents();
     loadTabData(currentTab);
 
@@ -84,6 +86,18 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             renderTableBody(filtered, TAB_CONFIG[currentTab].type);
         });
+
+        if (themeToggleBtn) {
+            themeToggleBtn.addEventListener('click', () => {
+                if (document.body.classList.contains('theme-dark')) {
+                    document.body.classList.remove('theme-dark');
+                    document.body.classList.add('theme-light');
+                } else {
+                    document.body.classList.remove('theme-light');
+                    document.body.classList.add('theme-dark');
+                }
+            });
+        }
     }
 
     async function loadTabData(tabId) {

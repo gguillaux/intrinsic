@@ -21,10 +21,10 @@ I have successfully finished building Phase 2 of the Valuation Web Application (
 
 We further refined the application with the following V2.1 enhancements:
 
-1. **Vintage 5-Color UI Theme**
-   - Completely transitioned away from the neon/dark theme.
-   - Applied a beautiful, vintage 5-color palette: Salmon (`#DC6E55`), Mustard Yellow (`#DAB24F`), Cream (`#E3D4A8`), Sage Green (`#86A59A`), and Dark Slate (`#194146`).
-   - Replaced titles with the `Roboto` font for a cleaner, modern aesthetic while preserving monospace for financial data.
+1. **Light/Dark Retro Bloomberg UI Theme**
+   - Restored the 1980s Retro Bloomberg Terminal aesthetic natively by setting the core font to `Fira Code` monospace.
+   - The theme now adapts the requested 5-color vintage palette to provide high data density: Salmon (`#D94B2B`), Mustard Yellow (`#ECA13A`), Cream (`#F3E1B6`), Muted Teal (`#45A5AE`), and Dark Slate (`#144358`).
+   - Implemented a **[ TOGGLE THEME ]** button in the sidebar allowing a user to swap between the original Black Dark theme and the new Cream-based Light theme dynamically.
 
 2. **Historical News Fetching**
    - Added a `DD/MM/YYYY` Date Picker to the Market News tab.
@@ -34,11 +34,9 @@ We further refined the application with the following V2.1 enhancements:
    - The B3 Indices tab now acts as a pure configuration screen. Selecting an index (like IFIX) instantly redirects you to the BR Stocks tab, which now correctly queries the backend to display *only* the tickers belonging to that specific index.
 
 ## Live Demo & Verification
-The application is fully functional. The subagent tested the new Vintage UI, the Date Picker, and the Index routing.
+The application is fully functional. The subagent tested the Dark/Light retro terminal toggle in action:
 
-You can see the demonstration of the new Version 2.1 dashboard here:
-
-![V2.1 Vintage UI Demo](file:///home/ggx/.gemini/antigravity/brain/74bd31ec-d161-45ea-97dc-22eb0e5b1dd9/vintage_ui_news_filter_1773630695879.webp)
+![V2.1 Dark/Light Toggle Demo](file:///home/ggx/.gemini/antigravity/brain/74bd31ec-d161-45ea-97dc-22eb0e5b1dd9/bloomberg_dark_light_toggle_1773631303320.webp)
 
 ## How to run it locally
 To start the application yourself, you need to start the API and the web server:
