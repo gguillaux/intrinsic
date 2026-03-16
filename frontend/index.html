@@ -19,18 +19,26 @@
             <nav class="nav-menu">
                 <div class="nav-section-title">EQUITIES</div>
                 <button class="nav-item active" data-tab="br-stocks">
-                    <span class="icon">🇧🇷</span> BR Stocks (Ações)
+                    <span class="icon">></span> BR Stocks
                 </button>
                 <button class="nav-item" data-tab="us-stocks">
-                    <span class="icon">🇺🇸</span> US Stocks
+                    <span class="icon">></span> US Stocks
                 </button>
 
                 <div class="nav-section-title mt-4">REAL ESTATE</div>
                 <button class="nav-item" data-tab="br-fiis">
-                    <span class="icon">🏢</span> BR FIIs
+                    <span class="icon">></span> BR FIIs
                 </button>
                 <button class="nav-item" data-tab="us-reits">
-                    <span class="icon">🏬</span> US REITs
+                    <span class="icon">></span> US REITs
+                </button>
+                
+                <div class="nav-section-title mt-4">MARKET DATA</div>
+                <button class="nav-item" data-tab="b3-indices">
+                    <span class="icon">></span> B3 Indices
+                </button>
+                <button class="nav-item" data-tab="market-news">
+                    <span class="icon">></span> Latest News
                 </button>
             </nav>
         </aside>
@@ -44,10 +52,17 @@
                 </div>
                 
                 <div class="filters-container">
+                    <select id="index-select" class="index-select" style="display: none;">
+                        <option value="IBOV">IBOV (Ibovespa)</option>
+                        <option value="IFIX">IFIX</option>
+                        <option value="SMLL">SMLL (Small Caps)</option>
+                        <option value="IDIV">IDIV (Dividendos)</option>
+                        <option value="IBRX">IBRX</option>
+                    </select>
                     <div class="search-box">
                         <input type="text" id="search-input" placeholder="Search ticker or name...">
                     </div>
-                    <button class="btn btn-primary" id="refresh-btn">Refresh Data</button>
+                    <button class="btn btn-primary" id="refresh-btn">REFRESH_</button>
                 </div>
             </header>
 

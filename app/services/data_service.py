@@ -1,19 +1,21 @@
 import yfinance as yf
+import requests_cache
+from datetime import timedelta
 from typing import Dict, Any
+
+# Create a cached session specifically for yfinance if global isn't picked up
+session = requests_cache.CachedSession('intrinsic_yfinance.cache', expire_after=timedelta(hours=6))
 
 def fetch_stock_metrics(ticker: str) -> Dict[str, Any]:
     """
-    Fetches stock metrics from yfinance for a given ticker.
-    Target metrics for Stocks: FCF, EPS, Debt, P/E, PEG
+    Fetches stock metrics from yfinance for a given ticker, cached.
     """
     try:
-        t = yf.Ticker(ticker)
+        t = yf.Ticker(ticker, session=session)
         info = t.info
         
-        # Calculate trailing FCF from cashflow if freeCashflow metric is missing, else use info
         fcf = info.get("freeCashflow")
         
-        # In yfinance, P/E is often trailingPE, EPS is trailingEps
         return {
             "ticker": ticker,
             "name": info.get("shortName", ticker),
@@ -39,7 +41,7 @@ def fetch_reit_metrics(ticker: str) -> Dict[str, Any]:
     Fetches FII/REIT metrics. Target: DivYield, P/VPA.
     """
     try:
-        t = yf.Ticker(ticker)
+        t = yf.Ticker(ticker, session=session)
         info = t.info
         
         return {

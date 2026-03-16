@@ -11,35 +11,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const tableContainer = document.querySelector('.table-container');
     const refreshBtn = document.getElementById('refresh-btn');
     const searchInput = document.getElementById('search-input');
+    const indexSelect = document.getElementById('index-select');
 
     let currentTab = 'br-stocks';
     let currentData = [];
 
     const TAB_CONFIG = {
-        'br-stocks': {
-            title: 'BR Stocks (Ações)',
-            subtitle: 'Focus on High FCF, EPS, low Debt, P/E, and PEG < 1',
-            endpoint: '/stocks/br',
-            type: 'stock'
-        },
-        'us-stocks': {
-            title: 'US Stocks',
-            subtitle: 'Focus on High FCF, EPS, low Debt, P/E, and PEG < 1',
-            endpoint: '/stocks/us',
-            type: 'stock'
-        },
-        'br-fiis': {
-            title: 'BR Real Estate Funds (FIIs)',
-            subtitle: 'Focus on High Dividend Yield and Price to Book (P/VPA)',
-            endpoint: '/fiis/br',
-            type: 'reit'
-        },
-        'us-reits': {
-            title: 'US Real Estate Funds (REITs)',
-            subtitle: 'Focus on High Dividend Yield and Price to Book (P/VPA)',
-            endpoint: '/reits/us',
-            type: 'reit'
-        }
+        'br-stocks': { title: 'BR Stocks (Ações)', subtitle: 'Focus on High FCF, EPS, low Debt, P/E, and PEG < 1', endpoint: '/stocks/br', type: 'stock' },
+        'us-stocks': { title: 'US Stocks', subtitle: 'Focus on High FCF, EPS, low Debt, P/E, and PEG < 1', endpoint: '/stocks/us', type: 'stock' },
+        'br-fiis': { title: 'BR FIIs', subtitle: 'Focus on High Dividend Yield and Price to Book (P/VPA)', endpoint: '/fiis/br', type: 'reit' },
+        'us-reits': { title: 'US REITs', subtitle: 'Focus on High Dividend Yield and Price to Book (P/VPA)', endpoint: '/reits/us', type: 'reit' },
+        'b3-indices': { title: 'B3 Indices Composition', subtitle: 'Tracker for all major Brazilian Indices', endpoint: '/indices/IBOV', type: 'index' },
+        'market-news': { title: 'Market News Feed', subtitle: 'Latest corporate and economic announcements (B3)', endpoint: '/news', type: 'news' }
     };
 
     // Initialize
@@ -53,8 +36,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.currentTarget.classList.add('active');
                 
                 currentTab = e.currentTarget.dataset.tab;
+                
+                // Show/hide Index Select dropdown
+                if (currentTab === 'b3-indices') {
+                    indexSelect.style.display = 'block';
+                    TAB_CONFIG['b3-indices'].endpoint = `/indices/${indexSelect.value}`;
+                } else {
+                    indexSelect.style.display = 'none';
+                }
+                
                 loadTabData(currentTab);
             });
+        });
+
+        indexSelect.addEventListener('change', (e) => {
+            TAB_CONFIG['b3-indices'].endpoint = `/indices/${e.target.value}`;
+            loadTabData('b3-indices');
         });
 
         refreshBtn.addEventListener('click', () => {
@@ -63,10 +60,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         searchInput.addEventListener('input', (e) => {
             const term = e.target.value.toLowerCase();
-            const filtered = currentData.filter(item => 
-                item.ticker.toLowerCase().includes(term) || 
-                (item.name && item.name.toLowerCase().includes(term))
-            );
+            const filtered = currentData.filter(item => {
+                const searchStr = Object.values(item).join(' ').toLowerCase();
+                return searchStr.includes(term);
+            });
             renderTableBody(filtered, TAB_CONFIG[currentTab].type);
         });
     }
@@ -74,11 +71,9 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadTabData(tabId) {
         const config = TAB_CONFIG[tabId];
         
-        // Update Headers
         pageTitle.textContent = config.title;
         pageSubtitle.textContent = config.subtitle;
         
-        // Clear old data
         tableContainer.style.display = 'none';
         loader.style.display = 'flex';
         tableBody.innerHTML = '';
@@ -105,28 +100,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderTableHeaders(type) {
         if (type === 'stock') {
-            tableHeaderRow.innerHTML = `
-                <th>Ticker / Name</th>
-                <th>Price</th>
-                <th>FCF</th>
-                <th>EPS</th>
-                <th>Debt</th>
-                <th>P/E</th>
-                <th>PEG</th>
-            `;
+            tableHeaderRow.innerHTML = `<th>Ticker / Name</th><th>Price</th><th>FCF</th><th>EPS</th><th>Debt</th><th>P/E</th><th>PEG</th>`;
         } else if (type === 'reit') {
-            tableHeaderRow.innerHTML = `
-                <th>Ticker / Name</th>
-                <th>Price</th>
-                <th>Div. Yield</th>
-                <th>P/VPA</th>
-            `;
+            tableHeaderRow.innerHTML = `<th>Ticker / Name</th><th>Price</th><th>Div. Yield</th><th>P/VPA</th>`;
+        } else if (type === 'index') {
+            tableHeaderRow.innerHTML = `<th>Component Ticker</th><th>Weight (%)</th><th>Last Updated</th>`;
+        } else if (type === 'news') {
+            tableHeaderRow.innerHTML = `<th>Published At</th><th>Source</th><th>Headline</th><th>Link</th>`;
         }
     }
 
     function renderTableBody(data, type) {
-        if (data.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="10" style="text-align:center; color: var(--text-secondary)">No records found.</td></tr>`;
+        if (!data || data.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="10" style="text-align:center; color: var(--text-secondary)">NO DATA FOUND_</td></tr>`;
             return;
         }
 
@@ -141,6 +127,24 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         const rows = data.map(item => {
+            if (type === 'news') {
+                return `<tr>
+                    <td style="white-space:nowrap">${item.published_at.split('.')[0]}</td>
+                    <td style="color:var(--accent-hover)">[${item.source}]</td>
+                    <td style="font-weight:bold">${item.title}</td>
+                    <td><a href="${item.link}" target="_blank" style="color:var(--success); text-decoration:underline;">READ_</a></td>
+                </tr>`;
+            }
+
+            if (type === 'index') {
+                return `<tr>
+                    <td class="ticker-cell" style="color:var(--success)">${item.ticker}</td>
+                    <td style="font-weight:bold">${formatNumber(item.weight, 3)}%</td>
+                    <td style="color:var(--text-secondary)">${item.last_updated}</td>
+                </tr>`;
+            }
+
+            // Normal stock/reit parsing
             const nameSub = item.name ? item.name : 'Unknown';
             let rowHTML = `<tr>
                 <td class="ticker-cell">
@@ -172,9 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="${pVpaClass}">${formatNumber(item.p_vpa)}</td>
                 `;
             }
-
-            rowHTML += `</tr>`;
-            return rowHTML;
+            return rowHTML + `</tr>`;
         }).join('');
 
         tableBody.innerHTML = rows;

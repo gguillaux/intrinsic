@@ -1,8 +1,28 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import requests_cache
+from datetime import timedelta
 from .api import routes
+from .database import init_db
+from .services.index_service import fetch_and_store_indices
+from .services.news_service import fetch_and_store_news
 
-app = FastAPI(title="Intrinsic Valuation API", version="1.0.0")
+app = FastAPI(title="Intrinsic Valuation API", version="2.0.0")
+
+# Setup global requests cache (SQLite backend, 6h expiration)
+requests_cache.install_cache(
+    'intrinsic_cache', 
+    backend='sqlite', 
+    expire_after=timedelta(hours=6)
+)
+
+@app.on_event("startup")
+def startup_event():
+    # Initialize SQL database tables
+    init_db()
+    # Fetch latest data for indices and news
+    fetch_and_store_indices()
+    fetch_and_store_news()
 
 # Allow CORS for local frontend testing
 app.add_middleware(

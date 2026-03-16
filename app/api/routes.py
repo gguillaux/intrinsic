@@ -52,3 +52,21 @@ async def get_us_reits():
     tasks = [loop.run_in_executor(None, fetch_reit_metrics, t) for t in US_REITS]
     results = await asyncio.gather(*tasks)
     return results
+
+# --- New V2 Endpoints ---
+
+from ..services.news_service import fetch_and_store_news
+from ..services.index_service import get_all_indices, get_index_composition
+
+@router.get("/news")
+async def get_news():
+    # Feeds from DB cache or fresh scrape
+    return fetch_and_store_news()
+
+@router.get("/indices")
+async def list_indices():
+    return get_all_indices()
+
+@router.get("/indices/{index_name}")
+async def get_index(index_name: str):
+    return get_index_composition(index_name)
