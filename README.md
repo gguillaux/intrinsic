@@ -36,11 +36,19 @@ We further refined the application with the following V2.1 enhancements:
 
 4. **Dynamic External Asset Injector (Manual Mode)**
    - Included a toggle "Informar Ativos Manualmente", exposing a multi-ticker free-text area. This allows the user to specify comma-separated custom symbols on-the-fly without relying on an Index.
+   - **Backend Handling**: The backend intercepts Brazilian tickers dynamically, taking raw codes like `VALE3` and appending the `.SA` required by APIs so the user does not have to constantly append suffixes.
+
+5. **B3 News Tab Accuracy Engine**
+   - Reworked the `news_service.py` to target the exact JSON pipeline that B3 distributes instead of legacy HTML, completely fixing empty data arrays for past dates.
 
 ## Live Demo & Verification
 The application is fully functional. The subagent tested the new manual input box injection feature for arbitrary lists of indicators:
 
 ![V2.1 Manual Input Ticker Flow](/home/ggx/.gemini/antigravity/brain/74bd31ec-d161-45ea-97dc-22eb0e5b1dd9/manual_ticker_test_1773632460152.webp)
+
+And here is the repaired JSON feed targeting specific dates on B3:
+
+![V2.1 JSON News Fix](/home/ggx/.gemini/antigravity/brain/74bd31ec-d161-45ea-97dc-22eb0e5b1dd9/news_json_test_1773633100893.webp)
 
 ## How to run it locally
 To start the application yourself, you need to start the API and the web server:

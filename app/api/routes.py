@@ -29,7 +29,13 @@ async def get_br_stocks(index: str = "IBOV", tickers: Optional[str] = None):
     # Run synchronously in threadpool to avoid blocking event loop
     loop = asyncio.get_event_loop()
     if tickers:
-        ticker_list = [t.strip().upper() for t in tickers.split(",") if t.strip()]
+        ticker_list = []
+        for t in tickers.split(","):
+            t = t.strip().upper()
+            if t:
+                if not t.endswith(".SA"):
+                    t += ".SA"
+                ticker_list.append(t)
     else:
         comp = get_index_composition(index)
         if comp:

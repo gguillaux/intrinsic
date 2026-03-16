@@ -2,8 +2,9 @@ import requests
 import datetime
 import json
 from ..models import News
+from typing import Optional
 
-def fetch_and_store_news(target_date_str: str = None):
+def fetch_and_store_news(target_date_str: Optional[str] = None):
     """
     Fetches the news from B3 for a specific date and stores them.
     If no date is provided, defaults to today.
@@ -27,22 +28,27 @@ def fetch_and_store_news(target_date_str: str = None):
     try:
         response = requests.get(url, headers=headers)
         if response.status_code == 200:
-            from bs4 import BeautifulSoup
-            soup = BeautifulSoup(response.text, 'html.parser')
-            links = soup.find_all('a')
-            
+            data = response.json()
             new_count = 0
-            for a in links:
-                href = a.get('href')
-                if href and 'Detail' in href:
-                    title = a.text.strip()
-                    full_link = f"https://sistemasweb.b3.com.br/PlantaoNoticias/Noticias/{href}"
+            for item in data:
+                msg = item.get("NwsMsg", {})
+                if "id" in msg and "headline" in msg:
+                    id_noticia = msg["id"]
+                    title = msg["headline"]
+                    dt = msg.get("dateTime", "")
+                    date_param = dt[:10] if dt else endDateStr
+                    full_link = f"https://sistemasweb.b3.com.br/PlantaoNoticias/Noticias/Detail?idNoticia={id_noticia}&agencia=18&dataNoticia={date_param}"
                     
                     if not News.select().where(News.link == full_link).exists():
+                        try:
+                            pub_dt = datetime.datetime.strptime(dt, "%Y-%m-%d %H:%M:%S") if dt else datetime.datetime.now()
+                        except ValueError:
+                            pub_dt = datetime.datetime.now()
+                            
                         News.create(
                             title=title,
                             link=full_link,
-                            published_at=datetime.datetime.now(),
+                            published_at=pub_dt,
                             source="B3"
                         )
                         new_count += 1
