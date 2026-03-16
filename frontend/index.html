@@ -51,23 +51,32 @@
                     <p class="subtitle" id="page-subtitle">Focus on high FCF, EPS, low Debt, P/E, and PEG < 1</p>
                 </div>
                 
-                <div class="filters-container">
-                    <select id="index-select" class="index-select" style="display: none;">
-                        <option value="IBOV">IBOV (Ibovespa)</option>
-                        <option value="IFIX">IFIX</option>
-                        <option value="SMLL">SMLL (Small Caps)</option>
-                        <option value="IDIV">IDIV (Dividendos)</option>
-                        <option value="IBRX">IBRX</option>
-                    </select>
+                <div class="filters-container" id="filters-container">
+                    <input type="text" id="news-date-picker" class="date-input" placeholder="DD/MM/YYYY" style="display: none; width: 140px; text-align: center;">
                     <div class="search-box">
                         <input type="text" id="search-input" placeholder="Search ticker or name...">
                     </div>
-                    <button class="btn btn-primary" id="refresh-btn">REFRESH_</button>
+                    <button class="btn btn-primary" id="refresh-btn">REFRESH</button>
                 </div>
             </header>
 
+            <!-- Configuration Section for B3 Indices -->
+            <section id="config-section" style="display: none; padding: 2rem;">
+                <h2 style="color: var(--success); margin-bottom: 1rem;">>> SELECT ACTIVE INDEX FOR BR STOCKS</h2>
+                <div style="margin-bottom: 2rem; color: var(--text-secondary);">
+                    Select the index used to filter the companies presented in the BR Stocks tab.
+                </div>
+                <select id="index-select" class="index-select" style="font-size: 1.2rem; padding: 1rem; width: 300px; background: var(--bg-surface-hover); color: var(--text-primary); border: 2px solid var(--border);">
+                    <option value="IBOV">IBOV (Ibovespa)</option>
+                    <option value="IFIX">IFIX (FIIs)</option>
+                    <option value="SMLL">SMLL (Small Caps)</option>
+                    <option value="IDIV">IDIV (Dividendos)</option>
+                    <option value="IBRX">IBRX</option>
+                </select>
+            </section>
+
             <!-- Data Table -->
-            <section class="data-section">
+            <section class="data-section" id="data-section">
                 <div class="table-container">
                     <table id="valuation-table">
                         <thead>

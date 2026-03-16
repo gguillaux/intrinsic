@@ -3,23 +3,30 @@ import datetime
 import json
 from ..models import News
 
-def fetch_and_store_news():
+def fetch_and_store_news(target_date_str: str = None):
     """
-    Fetches the latest news from B3 and stores new ones in SQLite.
-    Returns the latest 50 news articles.
+    Fetches the news from B3 for a specific date and stores them.
+    If no date is provided, defaults to today.
+    target_date_str format: 'YYYY-MM-DD'
     """
-    today = datetime.date.today()
-    start_date = today - datetime.timedelta(days=7)
+    try:
+        if target_date_str:
+            target_date = datetime.datetime.strptime(target_date_str, "%Y-%m-%d").date()
+        else:
+            target_date = datetime.date.today()
+    except ValueError:
+        target_date = datetime.date.today()
+        
+    start_date = target_date - datetime.timedelta(days=3) # small window around the date
+    endDateStr = target_date.strftime('%Y-%m-%d')
+    startDateStr = start_date.strftime('%Y-%m-%d')
     
-    url = f"https://sistemasweb.b3.com.br/PlantaoNoticias/Noticias/ListarTitulosNoticias?agencia=18&palavra=&dataInicial={start_date.strftime('%Y-%m-%d')}&dataFinal={today.strftime('%Y-%m-%d')}"
+    url = f"https://sistemasweb.b3.com.br/PlantaoNoticias/Noticias/ListarTitulosNoticias?agencia=18&palavra=&dataInicial={startDateStr}&dataFinal={endDateStr}"
     
     headers = {"User-Agent": "Mozilla/5.0"}
     try:
         response = requests.get(url, headers=headers)
         if response.status_code == 200:
-            # The API returns HTML or JSON? Let's assume it returns HTML with a table or JSON list.
-            # B3 endpoint actually returns HTML. We'll use a regex or bs4 to parse it.
-            # For simplicity in this demo, let's mock the parsing if it's complex, or implement a basic one.
             from bs4 import BeautifulSoup
             soup = BeautifulSoup(response.text, 'html.parser')
             links = soup.find_all('a')
@@ -31,7 +38,6 @@ def fetch_and_store_news():
                     title = a.text.strip()
                     full_link = f"https://sistemasweb.b3.com.br/PlantaoNoticias/Noticias/{href}"
                     
-                    # Store if not exists
                     if not News.select().where(News.link == full_link).exists():
                         News.create(
                             title=title,
@@ -40,9 +46,11 @@ def fetch_and_store_news():
                             source="B3"
                         )
                         new_count += 1
-            print(f"Stored {new_count} new news items.")
+            print(f"Stored {new_count} new news items for {endDateStr}.")
     except Exception as e:
         print("Error fetching news:", e)
 
-    # Return latest from DB
-    return list(News.select().order_by(News.published_at.desc()).limit(50).dicts())
+    # Return fetched news from DB around the requested date
+    # In SQLite DateTimeField strings are formatted nicely, we can use simple string matching
+    like_str = f"{endDateStr}%"
+    return list(News.select().where(News.published_at ** like_str).order_by(News.published_at.desc()).limit(50).dicts())

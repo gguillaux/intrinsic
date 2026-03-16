@@ -12,18 +12,41 @@ document.addEventListener('DOMContentLoaded', () => {
     const refreshBtn = document.getElementById('refresh-btn');
     const searchInput = document.getElementById('search-input');
     const indexSelect = document.getElementById('index-select');
+    const configSection = document.getElementById('config-section');
+    const dataSection = document.getElementById('data-section');
+    const filtersContainer = document.getElementById('filters-container');
+    const newsDatePicker = document.getElementById('news-date-picker');
 
     let currentTab = 'br-stocks';
     let currentData = [];
 
     const TAB_CONFIG = {
-        'br-stocks': { title: 'BR Stocks (Ações)', subtitle: 'Focus on High FCF, EPS, low Debt, P/E, and PEG < 1', endpoint: '/stocks/br', type: 'stock' },
-        'us-stocks': { title: 'US Stocks', subtitle: 'Focus on High FCF, EPS, low Debt, P/E, and PEG < 1', endpoint: '/stocks/us', type: 'stock' },
-        'br-fiis': { title: 'BR FIIs', subtitle: 'Focus on High Dividend Yield and Price to Book (P/VPA)', endpoint: '/fiis/br', type: 'reit' },
-        'us-reits': { title: 'US REITs', subtitle: 'Focus on High Dividend Yield and Price to Book (P/VPA)', endpoint: '/reits/us', type: 'reit' },
-        'b3-indices': { title: 'B3 Indices Composition', subtitle: 'Tracker for all major Brazilian Indices', endpoint: '/indices/IBOV', type: 'index' },
-        'market-news': { title: 'Market News Feed', subtitle: 'Latest corporate and economic announcements (B3)', endpoint: '/news', type: 'news' }
+        'br-stocks': { title: 'BR Stocks', subtitle: 'Focus on High FCF, EPS, low Debt, P/E, and PEG < 1', type: 'stock' },
+        'us-stocks': { title: 'US Stocks', subtitle: 'Focus on High FCF, EPS, low Debt, P/E, and PEG < 1', type: 'stock' },
+        'br-fiis': { title: 'BR FIIs', subtitle: 'Focus on High Dividend Yield and Price to Book (P/VPA)', type: 'reit' },
+        'us-reits': { title: 'US REITs', subtitle: 'Focus on High Dividend Yield and Price to Book (P/VPA)', type: 'reit' },
+        'b3-indices': { title: 'B3 Indices Configuration', subtitle: 'Select active index for BR Stocks tab', type: 'config' },
+        'market-news': { title: 'Market News Feed', subtitle: 'Latest corporate and economic announcements (B3)', type: 'news' }
     };
+
+    function getEndpoint(tabId) {
+        if (tabId === 'br-stocks') return `/stocks/br?index=${indexSelect.value}`;
+        if (tabId === 'us-stocks') return `/stocks/us`;
+        if (tabId === 'br-fiis') return `/fiis/br`;
+        if (tabId === 'us-reits') return `/reits/us`;
+        if (tabId === 'market-news') {
+            const dateVal = newsDatePicker.value.trim();
+            if (dateVal) {
+                const parts = dateVal.split('/');
+                if (parts.length === 3) {
+                    const formattedDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                    return `/news?date=${formattedDate}`;
+                }
+            }
+            return `/news`;
+        }
+        return null;
+    }
 
     // Initialize
     bindEvents();
@@ -34,24 +57,19 @@ document.addEventListener('DOMContentLoaded', () => {
             item.addEventListener('click', (e) => {
                 navItems.forEach(nav => nav.classList.remove('active'));
                 e.currentTarget.classList.add('active');
-                
                 currentTab = e.currentTarget.dataset.tab;
-                
-                // Show/hide Index Select dropdown
-                if (currentTab === 'b3-indices') {
-                    indexSelect.style.display = 'block';
-                    TAB_CONFIG['b3-indices'].endpoint = `/indices/${indexSelect.value}`;
-                } else {
-                    indexSelect.style.display = 'none';
-                }
-                
                 loadTabData(currentTab);
             });
         });
 
-        indexSelect.addEventListener('change', (e) => {
-            TAB_CONFIG['b3-indices'].endpoint = `/indices/${e.target.value}`;
-            loadTabData('b3-indices');
+        indexSelect.addEventListener('change', () => {
+            // Automatically switch back to BR Stocks when a new index is selected
+            navItems.forEach(nav => {
+                nav.classList.remove('active');
+                if (nav.dataset.tab === 'br-stocks') nav.classList.add('active');
+            });
+            currentTab = 'br-stocks';
+            loadTabData(currentTab);
         });
 
         refreshBtn.addEventListener('click', () => {
@@ -74,6 +92,24 @@ document.addEventListener('DOMContentLoaded', () => {
         pageTitle.textContent = config.title;
         pageSubtitle.textContent = config.subtitle;
         
+        // Handle config tab vs data tabs
+        if (config.type === 'config') {
+            configSection.style.display = 'block';
+            dataSection.style.display = 'none';
+            filtersContainer.style.display = 'none';
+            return;
+        } else {
+            configSection.style.display = 'none';
+            dataSection.style.display = 'block';
+            filtersContainer.style.display = 'flex';
+        }
+
+        if (tabId === 'market-news') {
+            newsDatePicker.style.display = 'block';
+        } else {
+            newsDatePicker.style.display = 'none';
+        }
+
         tableContainer.style.display = 'none';
         loader.style.display = 'flex';
         tableBody.innerHTML = '';
@@ -82,7 +118,8 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             renderTableHeaders(config.type);
             
-            const response = await fetch(`${API_BASE}${config.endpoint}`);
+            const endpoint = getEndpoint(tabId);
+            const response = await fetch(`${API_BASE}${endpoint}`);
             if (!response.ok) throw new Error("Network response was not ok");
             
             const data = await response.json();
@@ -103,8 +140,6 @@ document.addEventListener('DOMContentLoaded', () => {
             tableHeaderRow.innerHTML = `<th>Ticker / Name</th><th>Price</th><th>FCF</th><th>EPS</th><th>Debt</th><th>P/E</th><th>PEG</th>`;
         } else if (type === 'reit') {
             tableHeaderRow.innerHTML = `<th>Ticker / Name</th><th>Price</th><th>Div. Yield</th><th>P/VPA</th>`;
-        } else if (type === 'index') {
-            tableHeaderRow.innerHTML = `<th>Component Ticker</th><th>Weight (%)</th><th>Last Updated</th>`;
         } else if (type === 'news') {
             tableHeaderRow.innerHTML = `<th>Published At</th><th>Source</th><th>Headline</th><th>Link</th>`;
         }
@@ -133,14 +168,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td style="color:var(--accent-hover)">[${item.source}]</td>
                     <td style="font-weight:bold">${item.title}</td>
                     <td><a href="${item.link}" target="_blank" style="color:var(--success); text-decoration:underline;">READ_</a></td>
-                </tr>`;
-            }
-
-            if (type === 'index') {
-                return `<tr>
-                    <td class="ticker-cell" style="color:var(--success)">${item.ticker}</td>
-                    <td style="font-weight:bold">${formatNumber(item.weight, 3)}%</td>
-                    <td style="color:var(--text-secondary)">${item.last_updated}</td>
                 </tr>`;
             }
 
