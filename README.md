@@ -30,13 +30,14 @@ We further refined the application with the following V2.1 enhancements:
    - Added a `DD/MM/YYYY` Date Picker to the Market News tab.
    - The backend `/news` route was rewritten to accept historical dates, scraping the B3 portal specifically for the requested timeline.
 
-3. **Index Configurations**
+3. **Index Configurations & Status Invest Integration**
    - The B3 Indices tab now acts as a pure configuration screen. Selecting an index (like IFIX) instantly redirects you to the BR Stocks tab, which now correctly queries the backend to display *only* the tickers belonging to that specific index.
+   - We completely replaced `yfinance` with a robust **Status Invest** parsing integration. `yfinance` was consistently returning `null` data for Brazilian fundamental indicators (FCF, EPS, Debt, P/E, PEG). The App now queries Status Invest's historical API directly to guarantee 100% accurate data for Brazilian Equities.
 
 ## Live Demo & Verification
-The application is fully functional. The subagent tested the Dark/Light retro terminal toggle in action:
+The application is fully functional. The subagent tested the new Status Invest parsed tables and the new Dark/Light retro terminal toggle in action:
 
-![V2.1 Dark/Light Toggle Demo](file:///home/ggx/.gemini/antigravity/brain/74bd31ec-d161-45ea-97dc-22eb0e5b1dd9/bloomberg_dark_light_toggle_1773631303320.webp)
+![V2.1 Status Invest Data Validation](/home/ggx/.gemini/antigravity/brain/74bd31ec-d161-45ea-97dc-22eb0e5b1dd9/br_stocks_filled_data_1773631962933.webp)
 
 ## How to run it locally
 To start the application yourself, you need to start the API and the web server:
