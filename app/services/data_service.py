@@ -24,9 +24,12 @@ def fetch_stock_metrics(ticker: str) -> Dict[str, Any]:
         "name": ticker,
         "price": None,
         "p_fcf": None, 
-        "eps": None,
-        "debt": None, 
         "pe": None, 
+        "eps": None,
+        "debt_ebit": None, 
+        "roic": None,
+        "roe": None,
+        "net_margin": None,
         "peg": None, 
         "dividend_yield": None, 
         "p_vpa": None
@@ -72,7 +75,10 @@ def fetch_stock_metrics(ticker: str) -> Dict[str, Any]:
                         elif k == 'peg_Ratio': data['peg'] = v
                         elif k == 'dy': data['dividend_yield'] = v
                         elif k == 'p_vp': data['p_vpa'] = v
-                        elif k == 'dividaliquida_patrimonioliquido': data['debt'] = v
+                        elif k == 'dividaliquida_ebit': data['debt_ebit'] = v
+                        elif k == 'roic': data['roic'] = v
+                        elif k == 'roe': data['roe'] = v
+                        elif k == 'margemliquida': data['net_margin'] = v
         except Exception as e:
             print(f"StatusInvest error for {ticker}: {e}")
             
@@ -91,7 +97,10 @@ def fetch_stock_metrics(ticker: str) -> Dict[str, Any]:
                 data["peg"] = t.info.get("pegRatio")
                 data["dividend_yield"] = t.info.get("dividendYield", 0) * 100 if t.info.get("dividendYield") else None
                 data["p_vpa"] = t.info.get("priceToBook")
-                data["debt"] = t.info.get("totalDebt")
+                data["debt_ebit"] = None
+                data["roic"] = None
+                data["roe"] = t.info.get("returnOnEquity", 0) * 100 if t.info.get("returnOnEquity") else None
+                data["net_margin"] = t.info.get("profitMargins", 0) * 100 if t.info.get("profitMargins") else None
         except Exception as e:
             print(f"yfinance fundamentals error for {ticker}: {e}")
             
@@ -123,12 +132,14 @@ def fetch_reit_metrics(ticker: str) -> Dict[str, Any]:
             "price": info.get("currentPrice", info.get("regularMarketPrice")),
             "dividend_yield": info.get("dividendYield", 0) * 100 if info.get("dividendYield") else None,
             "p_vpa": info.get("priceToBook"),
-            "p_fcf": None, "eps": None, "debt": None, "pe": None, "peg": None
+            "p_fcf": None, "pe": None, "eps": None, "debt_ebit": None, "peg": None,
+            "roic": None, "roe": None, "net_margin": None
         }
     except Exception as e:
         print(f"Error fetching REIT {ticker}: {e}")
         return {
             "ticker": ticker,
-            "name": None, "price": None, "p_fcf": None, "eps": None,
-            "debt": None, "pe": None, "peg": None, "dividend_yield": None, "p_vpa": None
+            "name": None, "price": None, "p_fcf": None, "pe": None, "eps": None,
+            "debt_ebit": None, "peg": None, "dividend_yield": None, "p_vpa": None,
+            "roic": None, "roe": None, "net_margin": None
         }

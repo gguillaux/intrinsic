@@ -11,9 +11,12 @@ class ValuationMetric(BaseModel):
     name: Optional[str] = None
     price: Optional[float] = None
     p_fcf: Optional[float] = None
-    eps: Optional[float] = None
-    debt: Optional[float] = None
     pe: Optional[float] = None
+    eps: Optional[float] = None
+    debt_ebit: Optional[float] = None
+    roic: Optional[float] = None
+    roe: Optional[float] = None
+    net_margin: Optional[float] = None
     peg: Optional[float] = None
     dividend_yield: Optional[float] = None
     p_vpa: Optional[float] = None
