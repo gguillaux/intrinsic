@@ -225,8 +225,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <th data-sort="published_at">Date${getIcon('published_at')}</th>
                 <th data-sort="published_at">Time${getIcon('published_at')}</th>
                 <th data-sort="title">Asset${getIcon('title')}</th>
-                <th data-sort="title">Type${getIcon('title')}</th>
                 <th data-sort="title">Headline${getIcon('title')}</th>
+                <th data-sort="title">Type${getIcon('title')}</th>
             `;
         }
         attachSortListeners();
@@ -316,12 +316,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 // Split by " - " to separate Company Name and News Type/Date
-                const dashParts = headlineStr.split(' - ');
-                let companyName = dashParts[0].trim();
-                
+                let companyName = headlineStr;
                 let actualNewsType = '-';
+                
+                const dashParts = headlineStr.split(' - ');
                 if (dashParts.length > 1) {
+                    companyName = dashParts[0].trim();
                     actualNewsType = dashParts[1].trim();
+                } else {
+                    // Smart fallback for unstructured B3 streams
+                    const knownTypes = [
+                        'EDITAL DE CONVOCACAO', 'EDITAL AGE', 'EDITAL AGOE', 'EDITAL AGO',
+                        'ATA DE REUNIAO', 'ATA AGE', 'ATA AGOE', 'ATA AGO', 'ATA RCA', 'ATA',
+                        'DEMONSTRACOES FINANCEIRAS', 'DEMONST. FINANC.', 
+                        'AVISO AOS ACIONISTAS', 'AVISO AOS DEBENTURISTAS', 'AVISO AOS COTISTAS',
+                        'FATO RELEVANTE', 'COMUNICADO AO MERCADO', 
+                        'INFORME MENSAL', 'INFORME TRIMESTRAL', 'RELATORIO GERENCIAL', 
+                        'PROVENTOS'
+                    ];
+                    
+                    const upperHeadline = headlineStr.toUpperCase();
+                    for (const kt of knownTypes) {
+                        if (upperHeadline.includes(kt)) {
+                            // Extract actual casing if possible, or just use kt
+                            actualNewsType = kt;
+                            // Remove the keyword from the headline
+                            companyName = headlineStr.replace(new RegExp(kt, 'i'), '').trim();
+                            // Clean up dangling dashes if they exist
+                            companyName = companyName.replace(/\\s*-\\s*$/, '').trim();
+                            break;
+                        }
+                    }
                 }
 
                 // Clean trailing dates from news type (like 03/2026 or 12/03/2026)
@@ -342,8 +367,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td style="white-space:nowrap">${formattedDate}</td>
                     <td style="white-space:nowrap">${timePart}</td>
                     <td style="font-weight:bold; color:var(--text-secondary)">${asset}</td>
-                    <td style="white-space:nowrap; color:var(--accent)">${actualNewsType}</td>
                     <td><a href="${item.link}" target="_blank" style="color:var(--text-primary); text-decoration:underline;">${finalHeadline}</a></td>
+                    <td style="white-space:nowrap; color:var(--accent)">${actualNewsType}</td>
                 </tr>`;
             }
 
