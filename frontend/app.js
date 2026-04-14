@@ -203,6 +203,8 @@ document.addEventListener('DOMContentLoaded', () => {
             tableHeaderRow.innerHTML = `
                 <th data-sort="ticker">Ticker / Name${getIcon('ticker')}</th>
                 <th data-sort="price">Price${getIcon('price')}</th>
+                <th data-sort="peg">PEG${getIcon('peg')}</th>
+                <th data-sort="dividend_yield">Div. Yield${getIcon('dividend_yield')}</th>
                 <th data-sort="p_fcf">P/FCF${getIcon('p_fcf')}</th>
                 <th data-sort="pe">P/E${getIcon('pe')}</th>
                 <th data-sort="eps">EPS${getIcon('eps')}</th>
@@ -210,7 +212,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 <th data-sort="roic">ROIC${getIcon('roic')}</th>
                 <th data-sort="roe">ROE${getIcon('roe')}</th>
                 <th data-sort="net_margin">Net Mrg${getIcon('net_margin')}</th>
-                <th data-sort="peg">PEG${getIcon('peg')}</th>
             `;
         } else if (type === 'reit') {
             tableHeaderRow.innerHTML = `
@@ -360,12 +361,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 const fcfClass = (item.p_fcf > 0 && item.p_fcf <= 15) ? 'good-metric' : ((item.p_fcf < 0 || item.p_fcf > 30) ? 'bad-metric' : '');
                 const peClass = (item.pe > 0 && item.pe <= 15) ? 'good-metric' : ((item.pe < 0 || item.pe > 25) ? 'bad-metric' : '');
                 const pegClass = (item.peg > 0 && item.peg <= 1) ? 'good-metric' : ((item.peg < 0 || item.peg > 2) ? 'bad-metric' : '');
+                const dyClass = (item.dividend_yield > 5) ? 'good-metric' : '';
                 const debtEbitClass = item.debt_ebit < 3 && item.debt_ebit !== null ? 'good-metric' : (item.debt_ebit > 5 ? 'bad-metric' : '');
                 const roicClass = item.roic > 10 ? 'good-metric' : '';
                 const roeClass = item.roe > 15 ? 'good-metric' : '';
                 const marginClass = item.net_margin > 10 ? 'good-metric' : '';
 
                 rowHTML += `
+                    <td class="${pegClass}">${formatNumber(item.peg)}</td>
+                    <td class="${dyClass}">${formatPercent(item.dividend_yield)}</td>
                     <td class="${fcfClass}">${item.p_fcf !== null && item.p_fcf !== undefined ? item.p_fcf.toFixed(2) : '-'}</td>
                     <td class="${peClass}">${formatNumber(item.pe)}</td>
                     <td class="${'good-metric'}">${formatNumber(item.eps)}</td>
@@ -373,7 +377,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="${roicClass}">${formatPercent(item.roic)}</td>
                     <td class="${roeClass}">${formatPercent(item.roe)}</td>
                     <td class="${marginClass}">${formatPercent(item.net_margin)}</td>
-                    <td class="${pegClass}">${formatNumber(item.peg)}</td>
                 `;
             } else if (type === 'reit') {
                 const dyClass = (item.dividend_yield > 6) ? 'good-metric' : '';
