@@ -1,69 +1,47 @@
-# Intrinsic Valuation Dashboard - V2 Delivery
+# Intrinsic Valuation Dashboard - V3 Architecture
 
-I have successfully finished building Phase 2 of the Valuation Web Application (Intrinsic Pro v2.0).
+Welcome to the **Intrinsic Valuation API & Dashboard (V3)**. This application aggregates, parses, and formats critical fundamental indicators from B3 (Brazilian Stocks/FIIs/News) and US Markets into a high-density, 1980s retro-Bloomberg styled interface.
 
-## What's new in V2?
-1. **Caching and Rate-Limiting Architecture**
-   - Implemented `requests_cache` with a 6-hour TTL backed by an SQLite Database (`data.db`).
-   - This ensures the app is genuinely "Low Frequency," bypasses rate limiting from yfinance and B3 APIs, and drastically improves perceived performance.
+## 🚀 What's New in V3?
 
-2. **Database Models for Financial Context**
-   - Created a historical `News` table for market events.
-   - Created an `IndexComposition` table that overwrites itself with the latest weights.
+### 1. Robust Quality Assurance (TDD)
+- **Pytest Pipeline**: A comprehensive unit testing suite is now deployed under `/tests`. FastApi routes and core calculation algorithms (like the complex TTM P/FCF logic) are strictly tested with Mock arrays to guarantee stability without spamming external APIs.
+- **Anomaly Firewalls**: Deployed fail-safes for US equities (ADRs). When hyper-inflated anomalies are reported from base APIs (e.g., Argentine ADRs displaying >1000% ROE), the backend intercepts the response and gracefully falls back to reliable bounds from Yahoo Finance.
 
-3. **New API Endpoints & Market Breadth**
-   - Added support to filter by **ALL major B3 Indices** (IBOV, IFIX, SMLL, IDIV, IBRX).
-   - Added a News endpoint integrating global/market headlines.
+### 2. De-monolithication & Cache Stability
+- **Decoupled Architecture**: Removed the global HTTP caching monkey-patches that structurally conflicted with Yahoo Finance (`yfinance` error 429). The `data_service.py` functions were split into atomic, testable functions for pure modularity (`_get_statusinvest_data`, `_compute_ttm_fcf`, etc.).
+- **Localized Sessions**: HTTP Caching is securely sandboxed to isolated components, allowing aggressive API fetching natively.
+
+### 3. Smart Market Feed Parser
+- The `News Feed` module features an advanced regex parsing engine. It normalizes unstructured text directly from the B3 string pipeline by filtering trailing dashes, squashing multi-line line-breaks, and dynamically extracting over 20+ hidden event classifications (`DEMONSTRAÇÕES FINANCEIRAS`, `SUMÁRIO AGE`, `PROPOSTA AGOE`) reliably into independent columns.
+
+### 4. Unified Status Invest Cross-Border API
+- Fundaments for Global US Stocks (P/E, Debt/EBIT, ROIC, ROE) are no longer loosely coupled to `yfinance` approximations. The application leverages a unified algorithm fetching precision data exclusively through Native `StatusInvest` Endpoints (`/stock` and `/acao`), guaranteeing perfect data symmetry whether visualizing Apple (`AAPL`) or Petrobras (`PETR4`).
 
 ---
 
-# V2.1 Enhancements
+## 🎨 Visualization Features
 
-We further refined the application with the following V2.1 enhancements:
+- **Retro Bloomberg UI Theme**: Adaptive Light/Dark modes mapping 5 distinct vintage palettes, rendered purely in CSS + JS native. High-speed array sorting explicitly written for maximum browser performance.
+- **Dynamic B3 Index Ticker Integration**: Selecting `IBOV`, `IFIX`, or `SMLL` triggers backend logic to immediately resolve and inject the precise index ticker makeup. 
 
-1. **Light/Dark Retro Bloomberg UI Theme**
-   - Restored the 1980s Retro Bloomberg Terminal aesthetic natively by setting the core font to `Fira Code` monospace.
-   - The theme now adapts the requested 5-color vintage palette to provide high data density: Salmon (`#D94B2B`), Mustard Yellow (`#ECA13A`), Cream (`#F3E1B6`), Muted Teal (`#45A5AE`), and Dark Slate (`#144358`).
-   - Implemented a **[ TOGGLE THEME ]** button in the sidebar allowing a user to swap between the original Black Dark theme and the new Cream-based Light theme dynamically.
+## ⚡ How to run it locally
 
-2. **Historical News Fetching**
-   - Added a `DD/MM/YYYY` Date Picker to the Market News tab.
-   - The backend `/news` route was rewritten to accept historical dates, scraping the B3 portal specifically for the requested timeline.
+We consolidated execution. You no longer need to run multiple terminals.
 
-3. **Index Configurations & Status Invest Integration**
-   - The B3 Indices tab now acts as a pure configuration screen. Selecting an index (like IFIX) instantly redirects you to the BR Stocks tab, which now correctly queries the backend to display *only* the tickers belonging to that specific index.
-   - We completely replaced `yfinance` with a robust **Status Invest** parsing integration. `yfinance` was consistently returning `null` data for Brazilian fundamental indicators (FCF, EPS, Debt, P/E, PEG). The App now queries Status Invest's historical API directly to guarantee 100% accurate data for Brazilian Equities.
-
-4. **Dynamic External Asset Injector (Manual Mode)**
-   - Included a toggle "Informar Ativos Manualmente", exposing a multi-ticker free-text area. This allows the user to specify comma-separated custom symbols on-the-fly without relying on an Index.
-   - **Backend Handling**: The backend intercepts Brazilian tickers dynamically, taking raw codes like `VALE3` and appending the `.SA` required by APIs so the user does not have to constantly append suffixes.
-
-5. **B3 News Tab Accuracy Engine**
-   - Reworked the `news_service.py` to target the exact JSON pipeline that B3 distributes instead of legacy HTML, completely fixing empty data arrays for past dates.
-
-## Live Demo & Verification
-The application is fully functional. The subagent tested the new manual input box injection feature for arbitrary lists of indicators:
-
-![V2.1 Manual Input Ticker Flow](/home/ggx/.gemini/antigravity/brain/74bd31ec-d161-45ea-97dc-22eb0e5b1dd9/manual_ticker_test_1773632460152.webp)
-
-And here is the repaired JSON feed targeting specific dates on B3:
-
-![V2.1 JSON News Fix](/home/ggx/.gemini/antigravity/brain/74bd31ec-d161-45ea-97dc-22eb0e5b1dd9/news_json_test_1773633100893.webp)
-
-## How to run it locally
-To start the application yourself, you need to start the API and the web server:
-
-**Terminal 1 (Backend):**
+**Start the Entire Engine (Backend + Frontend):**
 ```bash
-cd ~/repos/intrinsic
+bash start.sh
+```
+> The API will bind to `localhost:8000` and the web interface will stream on `localhost:3000`. To stop safely, type `CTRL+C`.
+
+## 🧪 Running Automated Tests
+
+To verify the integrity of the data services without making external web calls:
+```bash
 source venv/bin/activate
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+pytest -v tests/
 ```
 
-**Terminal 2 (Frontend):**
-```bash
-cd ~/repos/intrinsic/frontend
-python3 -m http.server 3000
-```
-
-Then simply open `http://localhost:3000` in your web browser!
+---
+*Developed with focus on Low P/FCF, deep EPS, Low Debt, and optimal Returns on Invested Capital (ROIC).*
