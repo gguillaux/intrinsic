@@ -50,7 +50,7 @@
             </nav>
 
             <div class="theme-toggle-container" style="margin-top: auto; padding-top: 2rem;">
-                <button id="theme-toggle-btn" class="btn" style="width: 100%; border: 1px solid var(--border); background: transparent; color: var(--text-in-sidebar);">[ TOGGLE THEME ]</button>
+                <button id="settings-btn" class="btn" style="width: 100%; border: 1px solid var(--border); background: transparent; color: var(--text-in-sidebar);">[ SETTINGS CONFIG ]</button>
             </div>
         </aside>
 
@@ -133,6 +133,35 @@
         </main>
     </div>
 
-    <script src="app.js?v=10"></script>
+    <!-- Settings Modal -->
+    <div id="settings-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center;">
+        <div style="background: var(--bg-surface); padding: 2rem; border: 2px solid var(--border); width: 450px; color: var(--text-primary); font-family: 'Fira Code', monospace; box-shadow: 0 0 20px rgba(0,0,0,0.5);">
+            <h3 style="margin-bottom: 1.5rem; text-transform: uppercase;">[ GLOBAL CONFIGURATION ]</h3>
+            
+            <label style="display: block; margin-bottom: 0.5rem; color: var(--accent);">Default BR Stocks</label>
+            <input type="text" id="config-br-stocks" style="width: 100%; background: var(--bg-main); color: var(--text-primary); border: 1px solid var(--border); padding: 0.5rem; margin-bottom: 1rem;" placeholder="Leave empty for Index Fallback">
+
+            <label style="display: block; margin-bottom: 0.5rem; color: var(--accent);">Default US Stocks</label>
+            <input type="text" id="config-us-stocks" style="width: 100%; background: var(--bg-main); color: var(--text-primary); border: 1px solid var(--border); padding: 0.5rem; margin-bottom: 1.5rem;" placeholder="AAPL, MSFT...">
+
+            <label style="display: block; margin-bottom: 0.5rem; color: var(--accent);">Default BR FIIs</label>
+            <input type="text" id="config-br-fiis" style="width: 100%; background: var(--bg-main); color: var(--text-primary); border: 1px solid var(--border); padding: 0.5rem; margin-bottom: 1.5rem;" placeholder="MXRF11.SA...">
+
+            <label style="display: block; margin-bottom: 0.5rem; color: var(--accent);">Default US REITs</label>
+            <input type="text" id="config-us-reits" style="width: 100%; background: var(--bg-main); color: var(--text-primary); border: 1px solid var(--border); padding: 0.5rem; margin-bottom: 1.5rem;" placeholder="O, SPG...">
+            
+            <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+                <button id="theme-toggle-btn" class="btn" style="flex: 1; border-color: var(--border);">[ TOGGLE THEME ]</button>
+                <button id="clear-cache-btn" class="btn" style="flex: 1; border-color: var(--danger); color: var(--danger);">[ PURGE CACHE ]</button>
+            </div>
+            
+            <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                <button id="settings-cancel" class="btn" style="color: var(--text-secondary); border: none;">Cancel</button>
+                <button id="settings-save" class="btn btn-primary" style="background: var(--accent); color: var(--bg-surface);">SAVE & RELOAD</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js?v=11"></script>
 </body>
 </html>

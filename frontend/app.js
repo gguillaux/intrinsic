@@ -41,17 +41,27 @@ document.addEventListener('DOMContentLoaded', () => {
     function getEndpoint(tabId) {
         let manualTickers = '';
         if ((tabId === 'br-stocks' || tabId === 'us-stocks') && manualAssetsCheckbox && manualAssetsCheckbox.checked) {
-            manualTickers = manualAssetsTextarea.value.trim().split(/[\s,]+/).filter(x => x).join(',');
+            manualTickers = manualAssetsTextarea.value.trim().split(/[\\s,]+/).filter(x => x).join(',');
         }
 
         if (tabId === 'br-stocks') {
-            return manualTickers ? `/stocks/br?tickers=${manualTickers}` : `/stocks/br?index=${indexSelect.value}`;
+            if (manualTickers) return `/stocks/br?tickers=${manualTickers}`;
+            const devConf = localStorage.getItem('cfg_br');
+            return devConf ? `/stocks/br?tickers=${devConf}` : `/stocks/br?index=${indexSelect.value}`;
         }
         if (tabId === 'us-stocks') {
-            return manualTickers ? `/stocks/us?tickers=${manualTickers}` : `/stocks/us`;
+            if (manualTickers) return `/stocks/us?tickers=${manualTickers}`;
+            const devConf = localStorage.getItem('cfg_us');
+            return devConf ? `/stocks/us?tickers=${devConf}` : `/stocks/us`;
         }
-        if (tabId === 'br-fiis') return `/fiis/br`;
-        if (tabId === 'us-reits') return `/reits/us`;
+        if (tabId === 'br-fiis') {
+            const devConf = localStorage.getItem('cfg_fiis');
+            return devConf ? `/stocks/br?tickers=${devConf}` : `/fiis/br`;
+        }
+        if (tabId === 'us-reits') {
+            const devConf = localStorage.getItem('cfg_reits');
+            return devConf ? `/stocks/us?tickers=${devConf}` : `/reits/us`;
+        }
         if (tabId === 'market-news') {
             const dateVal = newsDatePicker.value.trim();
             if (dateVal) {
@@ -112,6 +122,47 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (themeToggleBtn) {
+            // Settings Modal UI bindings
+            const settingsBtn = document.getElementById('settings-btn');
+            const settingsModal = document.getElementById('settings-modal');
+            const settingsSave = document.getElementById('settings-save');
+            const settingsCancel = document.getElementById('settings-cancel');
+            const clearCacheBtn = document.getElementById('clear-cache-btn');
+            const cBr = document.getElementById('config-br-stocks');
+            const cUs = document.getElementById('config-us-stocks');
+            const cFiis = document.getElementById('config-br-fiis');
+            const cReits = document.getElementById('config-us-reits');
+
+            settingsBtn.addEventListener('click', () => {
+                cBr.value = localStorage.getItem('cfg_br') || '';
+                cUs.value = localStorage.getItem('cfg_us') || '';
+                cFiis.value = localStorage.getItem('cfg_fiis') || '';
+                cReits.value = localStorage.getItem('cfg_reits') || '';
+                settingsModal.style.display = 'flex';
+            });
+
+            settingsCancel.addEventListener('click', () => settingsModal.style.display = 'none');
+            
+            settingsSave.addEventListener('click', () => {
+                localStorage.setItem('cfg_br', cBr.value.trim());
+                localStorage.setItem('cfg_us', cUs.value.trim());
+                localStorage.setItem('cfg_fiis', cFiis.value.trim());
+                localStorage.setItem('cfg_reits', cReits.value.trim());
+                settingsModal.style.display = 'none';
+                loadTabData(currentTab);
+            });
+
+            clearCacheBtn.addEventListener('click', async () => {
+                clearCacheBtn.textContent = 'PURGING...';
+                try {
+                    await fetch(`${API_BASE}/cache/clear`, { method: 'POST' });
+                    clearCacheBtn.textContent = 'CLEARED!';
+                    setTimeout(() => { clearCacheBtn.textContent = '[ PURGE CACHE ]'; }, 2000);
+                } catch (err) {
+                    clearCacheBtn.textContent = 'ERROR';
+                }
+            });
+
             themeToggleBtn.addEventListener('click', () => {
                 if (document.body.classList.contains('theme-dark')) {
                     document.body.classList.remove('theme-dark');

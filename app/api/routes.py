@@ -91,3 +91,19 @@ async def list_indices():
 @router.get("/indices/{index_name}")
 async def get_index(index_name: str):
     return get_index_composition(index_name)
+
+import os
+import requests_cache
+@router.post("/cache/clear")
+async def clear_cache():
+    try:
+        session = requests_cache.CachedSession('statusinvest_cache')
+        session.cache.clear()
+        
+        if os.path.exists("data.db"):
+            os.remove("data.db")
+        from ..database import init_db
+        init_db()
+        return {"status": "Cache Cleared"}
+    except Exception as e:
+        return {"status": "Error", "message": str(e)}
