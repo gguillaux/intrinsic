@@ -316,34 +316,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 // Split by " - " to separate Company Name and News Type/Date
-                let companyName = headlineStr;
+                const dashParts = headlineStr.split(' - ');
+                let companyName = dashParts[0].trim();
                 let actualNewsType = '-';
                 
-                const dashParts = headlineStr.split(' - ');
-                if (dashParts.length > 1) {
-                    companyName = dashParts[0].trim();
+                if (dashParts.length > 1 && dashParts[1].trim() !== '') {
                     actualNewsType = dashParts[1].trim();
-                } else {
-                    // Smart fallback for unstructured B3 streams
+                }
+
+                // Smart fallback for unstructured B3 streams if type wasn't found
+                if (actualNewsType === '-') {
                     const knownTypes = [
                         'EDITAL DE CONVOCACAO', 'EDITAL AGE', 'EDITAL AGOE', 'EDITAL AGO',
                         'ATA DE REUNIAO', 'ATA AGE', 'ATA AGOE', 'ATA AGO', 'ATA RCA', 'ATA',
-                        'DEMONSTRACOES FINANCEIRAS', 'DEMONST. FINANC.', 
+                        'DEMONSTRACOES FINANCEIRAS', 'DEMONST. FINANC.', 'DEMONSTRACAO FINANCEIRA',
                         'AVISO AOS ACIONISTAS', 'AVISO AOS DEBENTURISTAS', 'AVISO AOS COTISTAS',
                         'FATO RELEVANTE', 'COMUNICADO AO MERCADO', 
                         'INFORME MENSAL', 'INFORME TRIMESTRAL', 'RELATORIO GERENCIAL', 
                         'PROVENTOS'
                     ];
                     
-                    const upperHeadline = headlineStr.toUpperCase();
+                    const upperHeadline = companyName.toUpperCase();
                     for (const kt of knownTypes) {
                         if (upperHeadline.includes(kt)) {
-                            // Extract actual casing if possible, or just use kt
                             actualNewsType = kt;
-                            // Remove the keyword from the headline
-                            companyName = headlineStr.replace(new RegExp(kt, 'i'), '').trim();
-                            // Clean up dangling dashes if they exist
-                            companyName = companyName.replace(/\\s*-\\s*$/, '').trim();
+                            // Remove the keyword from the headline gracefully
+                            companyName = companyName.replace(new RegExp(kt, 'ig'), '').trim();
+                            // Clean up dangling dashes, spaces or separators at the end
+                            companyName = companyName.replace(/^[-:\s]+|[-:\s]+$/g, '').trim();
+                            // Failsafe in case the entire headline was just the Type keyword
+                            if (!companyName) companyName = actualNewsType;
                             break;
                         }
                     }
