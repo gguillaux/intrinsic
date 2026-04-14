@@ -14,10 +14,11 @@ def _init_empty_metrics(ticker: str) -> Dict[str, Any]:
         "dividend_yield": None, "p_vpa": None
     }
 
-def _get_statusinvest_data(ticker: str, data: Dict[str, Any]) -> None:
+def _get_statusinvest_data(ticker: str, data: Dict[str, Any], is_br: bool = True) -> None:
     si_ticker = ticker.replace(".SA", "").replace(".sa", "").upper()
     try:
-        url = 'https://statusinvest.com.br/acao/indicatorhistoricallist'
+        url_path = 'acao' if is_br else 'stock'
+        url = f'https://statusinvest.com.br/{url_path}/indicatorhistoricallist'
         payload = {'codes[]': si_ticker, 'time': '7', 'byQuarter': 'false', 'futureData': 'false'}
         headers = {
             'Accept': '*/*', 
@@ -40,18 +41,7 @@ def _get_statusinvest_data(ticker: str, data: Dict[str, Any]) -> None:
     except Exception as e:
         print(f"StatusInvest error for {ticker}: {e}")
 
-def _get_yfinance_fundamentals(ticker: str, data: Dict[str, Any], tc: yf.Ticker) -> None:
-    try:
-        info = getattr(tc, "info", {})
-        data["eps"] = info.get("trailingEps")
-        data["pe"] = info.get("trailingPE")
-        data["peg"] = info.get("pegRatio")
-        data["dividend_yield"] = info.get("dividendYield", 0) * 100 if info.get("dividendYield") else None
-        data["p_vpa"] = info.get("priceToBook")
-        data["roe"] = info.get("returnOnEquity", 0) * 100 if info.get("returnOnEquity") else None
-        data["net_margin"] = info.get("profitMargins", 0) * 100 if info.get("profitMargins") else None
-    except Exception as e:
-        print(f"yfinance fundamentals error for {ticker}: {e}")
+
 
 def _compute_ttm_fcf(ticker: str, data: Dict[str, Any], tc: yf.Ticker) -> None:
     try:
@@ -99,9 +89,9 @@ def fetch_stock_metrics(ticker: str) -> Dict[str, Any]:
         data["name"] = info.get("shortName", ticker)
 
         if ticker.endswith(".SA"):
-            _get_statusinvest_data(ticker, data)
+            _get_statusinvest_data(ticker, data, is_br=True)
         else:
-            _get_yfinance_fundamentals(ticker, data, tc)
+            _get_statusinvest_data(ticker, data, is_br=False)
             
         _compute_ttm_fcf(ticker, data, tc)
     except Exception as e:
