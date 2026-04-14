@@ -328,6 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (actualNewsType === '-') {
                     const knownTypes = [
                         'SUMARIO DE DECISOES', 'SUMARIO AGE', 'SUMARIO AGOE', 'SUMARIO AGO',
+                        'PROPOSTA DA ADMINISTRACAO', 'PROPOSTA AGE', 'PROPOSTA AGOE', 'PROPOSTA AGO',
                         'EDITAL DE CONVOCACAO', 'EDITAL AGE', 'EDITAL AGOE', 'EDITAL AGO',
                         'ATA DE REUNIAO', 'ATA AGE', 'ATA AGOE', 'ATA AGO', 'ATA RCA', 'ATA',
                         'DEMONSTRACOES FINANCEIRAS', 'DEMONST. FINANC.', 'DEMONSTRACAO FINANCEIRA',
