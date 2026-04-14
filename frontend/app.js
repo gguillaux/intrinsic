@@ -204,7 +204,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 <th data-sort="ticker">Ticker / Name${getIcon('ticker')}</th>
                 <th data-sort="price">Price${getIcon('price')}</th>
                 <th data-sort="peg">PEG${getIcon('peg')}</th>
-                <th data-sort="dividend_yield">Div. Yield${getIcon('dividend_yield')}</th>
                 <th data-sort="p_fcf">P/FCF${getIcon('p_fcf')}</th>
                 <th data-sort="pe">P/E${getIcon('pe')}</th>
                 <th data-sort="eps">EPS${getIcon('eps')}</th>
@@ -212,6 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <th data-sort="roic">ROIC${getIcon('roic')}</th>
                 <th data-sort="roe">ROE${getIcon('roe')}</th>
                 <th data-sort="net_margin">Net Mrg${getIcon('net_margin')}</th>
+                <th data-sort="dividend_yield">Div. Yield${getIcon('dividend_yield')}</th>
             `;
         } else if (type === 'reit') {
             tableHeaderRow.innerHTML = `
@@ -369,7 +369,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 rowHTML += `
                     <td class="${pegClass}">${formatNumber(item.peg)}</td>
-                    <td class="${dyClass}">${formatPercent(item.dividend_yield)}</td>
                     <td class="${fcfClass}">${item.p_fcf !== null && item.p_fcf !== undefined ? item.p_fcf.toFixed(2) : '-'}</td>
                     <td class="${peClass}">${formatNumber(item.pe)}</td>
                     <td class="${'good-metric'}">${formatNumber(item.eps)}</td>
@@ -377,6 +376,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="${roicClass}">${formatPercent(item.roic)}</td>
                     <td class="${roeClass}">${formatPercent(item.roe)}</td>
                     <td class="${marginClass}">${formatPercent(item.net_margin)}</td>
+                    <td class="${dyClass}">${formatPercent(item.dividend_yield)}</td>
                 `;
             } else if (type === 'reit') {
                 const dyClass = (item.dividend_yield > 6) ? 'good-metric' : '';
