@@ -104,35 +104,38 @@ def fetch_stock_metrics(ticker: str) -> Dict[str, Any]:
         except Exception as e:
             print(f"yfinance fundamentals error for {ticker}: {e}")
             
-    # Universal P/FCF fetch leveraging FinanceToolkit
+    # Universal Robust TTM P/FCF Calculation
     try:
-        from financetoolkit import Toolkit
-        import pandas as pd
-        tk = Toolkit([ticker])
-        p_fcf_df = tk.ratios.get_price_to_free_cash_flow_ratio()
-        val = p_fcf_df.iloc[0, -1]
-        if pd.notna(val):
-            data["p_fcf"] = float(val)
-    except Exception as e:
-        print(f"FinanceToolkit P/FCF error for {ticker}: {e}")
+        tc = yf.Ticker(ticker)
+        # 1. Price
+        current_price = data.get("price") or getattr(tc.fast_info, 'last_price', None) or tc.info.get("currentPrice") or tc.info.get("previousClose")
+        
+        # 2. Shares Outstanding
+        shares = tc.info.get('sharesOutstanding') or getattr(tc.fast_info, 'shares', None) or tc.info.get('impliedSharesOutstanding')
+        
+        # 3. FCF (Trailing Twelve Months from Quarterly)
+        ttm_fcf = None
+        qcf = tc.quarterly_cashflow
+        if hasattr(qcf, "index") and 'Free Cash Flow' in qcf.index:
+            fcf_q = qcf.loc['Free Cash Flow'].dropna()
+            if len(fcf_q) >= 4:
+                ttm_fcf = sum(fcf_q.iloc[:4].values)
+                
+        # 4. Fallback to Annual FCF if TTM Quarterly is missing
+        if not ttm_fcf:
+            acf = tc.cashflow
+            if hasattr(acf, "index") and 'Free Cash Flow' in acf.index:
+                fcf_a = acf.loc['Free Cash Flow'].dropna()
+                if len(fcf_a) > 0:
+                    ttm_fcf = fcf_a.iloc[0]
 
-    # Fallback Option 3 for Financial Stocks (WIZC3, CXSE3) which return 0.0 or None due to missing TTM
-    if not data.get("p_fcf") or data["p_fcf"] == 0.0:
-        try:
-            tc = yf.Ticker(ticker)
-            cf = tc.cashflow
-            shares = tc.info.get('sharesOutstanding') or tc.info.get('impliedSharesOutstanding')
-            prices = data.get("price") or tc.info.get("currentPrice") or tc.info.get("previousClose")
-            
-            if hasattr(cf, "index") and 'Free Cash Flow' in cf.index and shares and prices:
-                fcf_values = cf.loc['Free Cash Flow'].dropna().tolist()
-                if fcf_values:
-                    recent_fcf = fcf_values[0]
-                    fcf_per_share = recent_fcf / shares
-                    if fcf_per_share != 0:
-                        data["p_fcf"] = float(prices / fcf_per_share)
-        except Exception as e:
-            print(f"Fallback manual P/FCF error for {ticker}: {e}")
+        # 5. Calculation
+        if current_price and shares and ttm_fcf:
+            fcf_per_share = ttm_fcf / shares
+            if fcf_per_share != 0:
+                data["p_fcf"] = float(current_price / fcf_per_share)
+    except Exception as e:
+        print(f"Manual TTM P/FCF error for {ticker}: {e}")
 
     return data
 
