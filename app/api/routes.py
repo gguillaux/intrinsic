@@ -10,7 +10,7 @@ class ValuationMetric(BaseModel):
     ticker: str
     name: Optional[str] = None
     price: Optional[float] = None
-    fcf: Optional[float] = None
+    p_fcf: Optional[float] = None
     eps: Optional[float] = None
     debt: Optional[float] = None
     pe: Optional[float] = None

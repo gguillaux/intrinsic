@@ -30,8 +30,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentNewsType = '';
 
     const TAB_CONFIG = {
-        'br-stocks': { title: 'BR Stocks', subtitle: 'Focus on High FCF, EPS, low Debt, P/E, and PEG < 1', type: 'stock' },
-        'us-stocks': { title: 'US Stocks', subtitle: 'Focus on High FCF, EPS, low Debt, P/E, and PEG < 1', type: 'stock' },
+        'br-stocks': { title: 'BR Stocks', subtitle: 'Focus on Low P/FCF, EPS, low Debt, P/E, and PEG < 1', type: 'stock' },
+        'us-stocks': { title: 'US Stocks', subtitle: 'Focus on Low P/FCF, EPS, low Debt, P/E, and PEG < 1', type: 'stock' },
         'br-fiis': { title: 'BR FIIs', subtitle: 'Focus on High Dividend Yield and Price to Book (P/VPA)', type: 'reit' },
         'us-reits': { title: 'US REITs', subtitle: 'Focus on High Dividend Yield and Price to Book (P/VPA)', type: 'reit' },
         'b3-indices': { title: 'B3 Indices Configuration', subtitle: 'Select active index for BR Stocks tab', type: 'config' },
@@ -203,7 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tableHeaderRow.innerHTML = `
                 <th data-sort="ticker">Ticker / Name${getIcon('ticker')}</th>
                 <th data-sort="price">Price${getIcon('price')}</th>
-                <th data-sort="fcf">FCF${getIcon('fcf')}</th>
+                <th data-sort="p_fcf">P/FCF${getIcon('p_fcf')}</th>
                 <th data-sort="eps">EPS${getIcon('eps')}</th>
                 <th data-sort="debt">Debt${getIcon('debt')}</th>
                 <th data-sort="pe">P/E${getIcon('pe')}</th>
@@ -355,14 +355,15 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
 
             if (type === 'stock') {
-                const fcfClass = item.fcf > 0 ? 'good-metric' : (item.fcf < 0 ? 'bad-metric' : '');
-                const epsClass = item.eps > 0 ? 'good-metric' : (item.eps < 0 ? 'bad-metric' : '');
-                const peClass = (item.pe != null && item.pe < 15 && item.pe > 0) ? 'good-metric' : ((item.pe > 30 || item.pe < 0) ? 'bad-metric' : '');
-                const pegClass = (item.peg != null && item.peg < 1 && item.peg > 0) ? 'good-metric' : (item.peg > 2 ? 'bad-metric' : '');
+                const fcfClass = (item.p_fcf > 0 && item.p_fcf <= 15) ? 'good-metric' : ((item.p_fcf < 0 || item.p_fcf > 30) ? 'bad-metric' : '');
+                const peClass = (item.pe > 0 && item.pe <= 15) ? 'good-metric' : ((item.pe < 0 || item.pe > 25) ? 'bad-metric' : '');
+                const pegClass = (item.peg > 0 && item.peg <= 1) ? 'good-metric' : ((item.peg < 0 || item.peg > 2) ? 'bad-metric' : '');
+                const debtClass = item.debt < 1 && item.debt !== null ? 'good-metric' : (item.debt > 2 ? 'bad-metric' : '');
+                const dyClass = item.dividend_yield > 5 ? 'good-metric' : '';
 
                 rowHTML += `
-                    <td class="${fcfClass}">${formatLarge(item.fcf)}</td>
-                    <td class="${epsClass}">${formatNumber(item.eps)}</td>
+                    <td class="${fcfClass}">${item.p_fcf !== null && item.p_fcf !== undefined ? item.p_fcf.toFixed(2) : '-'}</td>
+                    <td class="${'good-metric'}">${formatNumber(item.eps)}</td>
                     <td>${formatLarge(item.debt)}</td>
                     <td class="${peClass}">${formatNumber(item.pe)}</td>
                     <td class="${pegClass}">${formatNumber(item.peg)}</td>
