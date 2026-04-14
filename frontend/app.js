@@ -327,6 +327,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Smart fallback for unstructured B3 streams if type wasn't found
                 if (actualNewsType === '-') {
                     const knownTypes = [
+                        'SUMARIO DE DECISOES', 'SUMARIO AGE', 'SUMARIO AGOE', 'SUMARIO AGO',
                         'EDITAL DE CONVOCACAO', 'EDITAL AGE', 'EDITAL AGOE', 'EDITAL AGO',
                         'ATA DE REUNIAO', 'ATA AGE', 'ATA AGOE', 'ATA AGO', 'ATA RCA', 'ATA',
                         'DEMONSTRACOES FINANCEIRAS', 'DEMONST. FINANC.', 'DEMONSTRACAO FINANCEIRA',
@@ -336,12 +337,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         'PROVENTOS'
                     ];
                     
-                    const upperHeadline = companyName.toUpperCase();
+                    // Normalize all spaces, newlines, and tabs into a single space for robust matching
+                    const normalizedHeadline = companyName.replace(/\s+/g, ' ');
+                    const upperHeadline = normalizedHeadline.toUpperCase();
+                    
                     for (const kt of knownTypes) {
                         if (upperHeadline.includes(kt)) {
                             actualNewsType = kt;
-                            // Remove the keyword from the headline gracefully
-                            companyName = companyName.replace(new RegExp(kt, 'ig'), '').trim();
+                            // Replace keyword in companyName even if it spans across newlines
+                            const regexStr = kt.split(' ').join('\\s+');
+                            companyName = companyName.replace(new RegExp(regexStr, 'ig'), '').trim();
                             // Clean up dangling dashes, spaces or separators at the end
                             companyName = companyName.replace(/^[-:\s]+|[-:\s]+$/g, '').trim();
                             // Failsafe in case the entire headline was just the Type keyword
