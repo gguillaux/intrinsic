@@ -116,6 +116,24 @@ def fetch_stock_metrics(ticker: str) -> Dict[str, Any]:
     except Exception as e:
         print(f"FinanceToolkit P/FCF error for {ticker}: {e}")
 
+    # Fallback Option 3 for Financial Stocks (WIZC3, CXSE3) which return 0.0 or None due to missing TTM
+    if not data.get("p_fcf") or data["p_fcf"] == 0.0:
+        try:
+            tc = yf.Ticker(ticker)
+            cf = tc.cashflow
+            shares = tc.info.get('sharesOutstanding') or tc.info.get('impliedSharesOutstanding')
+            prices = data.get("price") or tc.info.get("currentPrice") or tc.info.get("previousClose")
+            
+            if hasattr(cf, "index") and 'Free Cash Flow' in cf.index and shares and prices:
+                fcf_values = cf.loc['Free Cash Flow'].dropna().tolist()
+                if fcf_values:
+                    recent_fcf = fcf_values[0]
+                    fcf_per_share = recent_fcf / shares
+                    if fcf_per_share != 0:
+                        data["p_fcf"] = float(prices / fcf_per_share)
+        except Exception as e:
+            print(f"Fallback manual P/FCF error for {ticker}: {e}")
+
     return data
 
 def fetch_reit_metrics(ticker: str) -> Dict[str, Any]:
