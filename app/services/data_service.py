@@ -88,10 +88,25 @@ def fetch_stock_metrics(ticker: str) -> Dict[str, Any]:
             
         data["name"] = info.get("shortName", ticker)
 
-        if ticker.endswith(".SA"):
+        is_br = ticker.endswith(".SA")
+        if is_br:
             _get_statusinvest_data(ticker, data, is_br=True)
         else:
             _get_statusinvest_data(ticker, data, is_br=False)
+            
+            # ANOMALY ESCUDO: Filter out hyperinflation Status Invest glitches for ADRs (like ARS)
+            try:
+                info = getattr(tc, "info", {})
+                if data.get("roe") is not None and abs(data["roe"]) > 1000:
+                    yf_roe = info.get("returnOnEquity")
+                    data["roe"] = yf_roe * 100 if yf_roe is not None else None
+                
+                if data.get("roic") is not None and abs(data["roic"]) > 1000:
+                    yf_roa = info.get("returnOnAssets")
+                    # Fallback to ROA since Yahoo Finance doesn't explicitly expose strict ROIC publicly in the .info dictionary
+                    data["roic"] = yf_roa * 100 if yf_roa is not None else None
+            except Exception as bug:
+                print(f"Failed to apply anomaly filter for {ticker}: {bug}")
             
         _compute_ttm_fcf(ticker, data, tc)
     except Exception as e:
