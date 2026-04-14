@@ -275,6 +275,13 @@ th {
     top: 0;
 }
 
+.sort-icon {
+    font-size: 0.7rem;
+    margin-left: 0.4rem;
+    color: var(--accent);
+    vertical-align: middle;
+}
+
 tbody tr:hover {
     background-color: var(--border);
     color: var(--bg-surface);

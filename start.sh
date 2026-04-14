@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# Exit on error
+set -e
+
+echo "Starting Intrinsic Pro v2.0..."
+
+# Start Backend
+echo "Starting Backend (uvicorn) on port 8000..."
+# Ensure we are in the project root
+cd "$(dirname "$0")"
+source venv/bin/activate
+uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+BACKEND_PID=$!
+
+# Start Frontend
+echo "Starting Frontend (python http.server) on port 3000..."
+cd frontend
+python3 -m http.server 3000 &
+FRONTEND_PID=$!
+
+echo ""
+echo "====================================================="
+echo "Application started successfully!"
+echo "Backend API is running at http://localhost:8000"
+echo "Frontend Dashboard is running at http://localhost:3000"
+echo "Press Ctrl+C to stop both servers."
+echo "====================================================="
+echo ""
+
+# Trap Ctrl+C to kill both background processes
+trap "echo -e '\nStopping servers...'; kill $BACKEND_PID $FRONTEND_PID; exit 0" SIGINT SIGTERM
+
+# Wait for both processes
+wait $BACKEND_PID
+wait $FRONTEND_PID

@@ -24,18 +24,23 @@ def fetch_and_store_indices():
         "IBRX": [("VALE3.SA", 11.0), ("ITUB4.SA", 7.8), ("PETR4.SA", 6.9)]
     }
 
+    now = datetime.datetime.now()
+    records = []
+    for index_name, components in mock_data.items():
+        for ticker, weight in components:
+            records.append({
+                "index_name": index_name,
+                "ticker": ticker,
+                "weight": weight,
+                "last_updated": now
+            })
+
     with db.atomic():
         # Clear existing compositions to overwrite with latest
         IndexComposition.delete().execute()
         
-        for index_name, components in mock_data.items():
-            for ticker, weight in components:
-                IndexComposition.create(
-                    index_name=index_name,
-                    ticker=ticker,
-                    weight=weight,
-                    last_updated=datetime.datetime.now()
-                )
+        if records:
+            IndexComposition.insert_many(records).execute()
     print("Indices composition successfully updated in DB.")
 
 def get_index_composition(index_name: str):

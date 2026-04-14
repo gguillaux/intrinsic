@@ -80,8 +80,8 @@ def fetch_stock_metrics(ticker: str) -> Dict[str, Any]:
                 data["p_vpa"] = t.info.get("priceToBook")
                 data["fcf"] = t.info.get("freeCashflow")
                 data["debt"] = t.info.get("totalDebt")
-        except:
-            pass
+        except Exception as e:
+            print(f"yfinance fundamentals error for {ticker}: {e}")
             
     return data
 
