@@ -224,7 +224,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <th data-sort="published_at">Date${getIcon('published_at')}</th>
                 <th data-sort="published_at">Time${getIcon('published_at')}</th>
                 <th data-sort="title">Asset${getIcon('title')}</th>
-                <th data-sort="title">Headline / Type${getIcon('title')}</th>
+                <th data-sort="title">Type${getIcon('title')}</th>
+                <th data-sort="title">Headline${getIcon('title')}</th>
             `;
         }
         attachSortListeners();
@@ -316,33 +317,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Split by " - " to separate Company Name and News Type/Date
                 const dashParts = headlineStr.split(' - ');
                 let companyName = dashParts[0].trim();
-                let newsType = dashParts.length > 1 ? dashParts.slice(1).join(' - ').trim() : '';
-
-                // Clean trailing date/time from the newsType 
-                // Matches patterns like " 12/03/2026", "- 12/03/2026 09:00", etc at the end
-                newsType = newsType.replace(/\s*-?\s*\d{2}\/\d{2}\/\d{4}(\s+\d{2}:\d{2})?\s*$/, '').trim();
-
-                // Fallback: if there was no dash, the whole thing might be the company name, or just news
-                let finalHeadline = '';
-                if (newsType) {
-                    finalHeadline = `${companyName} - ${newsType}`;
-                } else {
-                    finalHeadline = companyName;
-                    // Try to guess news type from finalHeadline if needed, or leave it
-                    newsType = companyName; // purely for fallback filtering
-                }
                 
-                // Filtering Logic
+                let actualNewsType = '-';
+                if (dashParts.length > 1) {
+                    actualNewsType = dashParts[1].trim();
+                }
+
+                // Clean trailing dates from news type (like 03/2026 or 12/03/2026)
+                actualNewsType = actualNewsType.replace(/\s*-?\s*\d{2}\/\d{2}\/\d{4}(\s+\d{2}:\d{2})?\s*$/, '').trim();
+                actualNewsType = actualNewsType.replace(/\s*-?\s*\d{2}\/\d{4}\s*$/, '').trim();
+                
+                // Fallback filtering check
+                let filterStr = (actualNewsType !== '-') ? actualNewsType : companyName;
                 if (currentNewsType && currentNewsType !== '') {
-                    if (!newsType.toLowerCase().includes(currentNewsType)) {
+                    if (!filterStr.toLowerCase().includes(currentNewsType)) {
                         return ''; // Skip this row
                     }
                 }
+                
+                let finalHeadline = companyName;
 
                 return `<tr>
                     <td style="white-space:nowrap">${formattedDate}</td>
                     <td style="white-space:nowrap">${timePart}</td>
                     <td style="font-weight:bold; color:var(--text-secondary)">${asset}</td>
+                    <td style="white-space:nowrap; color:var(--accent)">${actualNewsType}</td>
                     <td><a href="${item.link}" target="_blank" style="color:var(--text-primary); text-decoration:underline;">${finalHeadline}</a></td>
                 </tr>`;
             }
