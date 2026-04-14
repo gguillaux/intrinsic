@@ -38,7 +38,7 @@ def fetch_stock_metrics(ticker: str) -> Dict[str, Any]:
     # 1. Check if BR stock
     if ticker.endswith(".SA"):
         try:
-            t = yf.Ticker(ticker)
+            t = yf.Ticker(ticker, session=session)
             info = t.fast_info if hasattr(t, "fast_info") else t.info
             data["price"] = getattr(info, "last_price", info.get("currentPrice", info.get("regularMarketPrice")))
             if hasattr(t, "info"):
@@ -85,7 +85,7 @@ def fetch_stock_metrics(ticker: str) -> Dict[str, Any]:
     else:
         # US Stocks logic (keep yfinance completely for them)
         try:
-            t = yf.Ticker(ticker)
+            t = yf.Ticker(ticker, session=session)
             info = t.fast_info if hasattr(t, "fast_info") else t.info
             data["price"] = getattr(info, "last_price", info.get("currentPrice", info.get("regularMarketPrice")))
             if hasattr(t, "info"):
@@ -106,7 +106,7 @@ def fetch_stock_metrics(ticker: str) -> Dict[str, Any]:
             
     # Universal Robust TTM P/FCF Calculation
     try:
-        tc = yf.Ticker(ticker)
+        tc = yf.Ticker(ticker, session=session)
         # 1. Price
         current_price = data.get("price") or getattr(tc.fast_info, 'last_price', None) or tc.info.get("currentPrice") or tc.info.get("previousClose")
         
@@ -144,7 +144,7 @@ def fetch_reit_metrics(ticker: str) -> Dict[str, Any]:
     Fetches FII/REIT metrics. Target: DivYield, P/VPA.
     """
     try:
-        t = yf.Ticker(ticker)
+        t = yf.Ticker(ticker, session=session)
         info = t.info
         
         return {
