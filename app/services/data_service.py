@@ -11,7 +11,9 @@ def _init_empty_metrics(ticker: str) -> Dict[str, Any]:
         "ticker": ticker, "name": ticker, "price": None,
         "p_fcf": None, "pe": None, "eps": None, "debt_ebit": None,
         "roic": None, "roe": None, "net_margin": None, "peg": None, 
-        "dividend_yield": None, "p_vpa": None
+        "dividend_yield": None, "p_vpa": None,
+        "min_52w": None, "max_52w": None, "val_12m": None, "vp_cota": None,
+        "caixa": None, "dy_cagr": None, "val_cagr": None, "cotistas": None
     }
 
 def _get_statusinvest_data(ticker: str, data: Dict[str, Any], is_br: bool = True, is_us_reit: bool = False) -> None:
@@ -117,14 +119,41 @@ def fetch_stock_metrics(ticker: str, is_us_reit: bool = False) -> Dict[str, Any]
 def fetch_reit_metrics(ticker: str) -> Dict[str, Any]:
     """Fetches FII/REIT metrics target."""
     data = _init_empty_metrics(ticker)
+    from bs4 import BeautifulSoup
+    def str_to_float(s):
+        if not s or s == '-': return None
+        s = s.replace('%', '').replace('R$', '').replace('.', '').replace(',', '.').strip()
+        try: return float(s)
+        except: return None
+        
     try:
-        t = yf.Ticker(ticker)
-        info = getattr(t, "info", {})
-        data["name"] = info.get("shortName", ticker)
-        data["price"] = info.get("currentPrice", info.get("regularMarketPrice"))
-        dy = info.get("dividendYield")
-        data["dividend_yield"] = dy * 100 if dy else None
-        data["p_vpa"] = info.get("priceToBook")
+        si_ticker = ticker.replace(".SA", "").upper()
+        url = f'https://statusinvest.com.br/fundos-imobiliarios/{si_ticker.lower()}'
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        res = status_invest_session.get(url, headers=headers)
+        if res.status_code == 200:
+            soup = BeautifulSoup(res.text, 'html.parser')
+            
+            name_tag = soup.find('h1')
+            if name_tag:
+                data["name"] = name_tag.text.split('-')[-1].strip()
+            
+            for title in soup.find_all('h3', class_='title'):
+                val_tag = title.find_next('strong', class_='value')
+                if val_tag:
+                    txt = title.text.strip().lower()
+                    val = str_to_float(val_tag.text.strip())
+                    if 'valor atual' in txt: data['price'] = val
+                    elif 'min. 52 semanas' in txt: data['min_52w'] = val
+                    elif 'máx. 52 semanas' in txt: data['max_52w'] = val
+                    elif 'dividend yield' in txt: data['dividend_yield'] = val
+                    elif 'valorização (12m)' in txt: data['val_12m'] = val
+                    elif 'val. patrimonial p/cota' in txt: data['vp_cota'] = val
+                    elif 'p/vp' in txt: data['p_vpa'] = val
+                    elif 'valor em caixa' in txt: data['caixa'] = val
+                    elif 'dy cagr (3 anos)' in txt: data['dy_cagr'] = val
+                    elif 'valor cagr (3 anos)' in txt: data['val_cagr'] = val
+                    elif 'cotistas' in txt: data['cotistas'] = int(val) if val else None
     except Exception as e:
         print(f"Error fetching REIT {ticker}: {e}")
     return data

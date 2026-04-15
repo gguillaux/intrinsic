@@ -20,6 +20,14 @@ class ValuationMetric(BaseModel):
     peg: Optional[float] = None
     dividend_yield: Optional[float] = None
     p_vpa: Optional[float] = None
+    min_52w: Optional[float] = None
+    max_52w: Optional[float] = None
+    val_12m: Optional[float] = None
+    vp_cota: Optional[float] = None
+    caixa: Optional[float] = None
+    dy_cagr: Optional[float] = None
+    val_cagr: Optional[float] = None
+    cotistas: Optional[int] = None
 
 # Pre-defined list of tickers to fetch (could be dynamic or from DB in the future)
 BR_STOCKS = ["ABEV3.SA", "ITUB4.SA", "WEGE3.SA", "VALE3.SA"]
