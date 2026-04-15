@@ -311,8 +311,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     currentSort.column = column;
                     currentSort.asc = true;
-                    if (id === 'cfg_fiis') routeBase = '/fiis/br';
-                    if (id === 'cfg_us_reits') routeBase = '/reits/us';
                 }
                 sortData();
                 renderTableHeaders(TAB_CONFIG[currentTab].type);
