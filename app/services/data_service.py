@@ -14,10 +14,10 @@ def _init_empty_metrics(ticker: str) -> Dict[str, Any]:
         "dividend_yield": None, "p_vpa": None
     }
 
-def _get_statusinvest_data(ticker: str, data: Dict[str, Any], is_br: bool = True) -> None:
+def _get_statusinvest_data(ticker: str, data: Dict[str, Any], is_br: bool = True, is_us_reit: bool = False) -> None:
     si_ticker = ticker.replace(".SA", "").replace(".sa", "").upper()
     try:
-        url_path = 'acao' if is_br else 'stock'
+        url_path = 'acao' if is_br else ('reit' if is_us_reit else 'stock')
         url = f'https://statusinvest.com.br/{url_path}/indicatorhistoricallist'
         payload = {'codes[]': si_ticker, 'time': '7', 'byQuarter': 'false', 'futureData': 'false'}
         headers = {
@@ -71,7 +71,7 @@ def _compute_ttm_fcf(ticker: str, data: Dict[str, Any], tc: yf.Ticker) -> None:
     except Exception as e:
         print(f"Manual TTM P/FCF error for {ticker}: {e}")
 
-def fetch_stock_metrics(ticker: str) -> Dict[str, Any]:
+def fetch_stock_metrics(ticker: str, is_us_reit: bool = False) -> Dict[str, Any]:
     """Fetches stock metrics into a unified dictionary format."""
     data = _init_empty_metrics(ticker)
     try:
@@ -92,7 +92,7 @@ def fetch_stock_metrics(ticker: str) -> Dict[str, Any]:
         if is_br:
             _get_statusinvest_data(ticker, data, is_br=True)
         else:
-            _get_statusinvest_data(ticker, data, is_br=False)
+            _get_statusinvest_data(ticker, data, is_br=False, is_us_reit=is_us_reit)
             
             # ANOMALY ESCUDO: Filter out hyperinflation Status Invest glitches for ADRs (like ARS)
             try:
