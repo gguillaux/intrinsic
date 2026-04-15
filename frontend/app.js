@@ -56,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (tabId === 'br-fiis') {
             const devConf = localStorage.getItem('cfg_fiis');
-            return devConf ? `/stocks/br?tickers=${devConf}` : `/fiis/br`;
+            return devConf ? `/fiis/br?tickers=${devConf}` : `/fiis/br`;
         }
         if (tabId === 'us-reits') {
             const devConf = localStorage.getItem('cfg_reits');
@@ -311,6 +311,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     currentSort.column = column;
                     currentSort.asc = true;
+                    if (id === 'cfg_fiis') routeBase = '/fiis/br';
+                    if (id === 'cfg_us_reits') routeBase = '/reits/us';
                 }
                 sortData();
                 renderTableHeaders(TAB_CONFIG[currentTab].type);

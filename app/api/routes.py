@@ -69,9 +69,13 @@ async def get_us_stocks(tickers: Optional[str] = None):
     return results
 
 @router.get("/fiis/br", response_model=List[ValuationMetric])
-async def get_br_fiis():
+async def get_br_fiis(tickers: Optional[str] = None):
     loop = asyncio.get_event_loop()
-    tasks = [loop.run_in_executor(None, fetch_reit_metrics, t) for t in BR_FIIS]
+    if tickers:
+        ticker_list = [t.strip().upper() for t in tickers.split(",") if t.strip()]
+    else:
+        ticker_list = BR_FIIS
+    tasks = [loop.run_in_executor(None, fetch_reit_metrics, t) for t in ticker_list]
     results = await asyncio.gather(*tasks)
     return results
 
