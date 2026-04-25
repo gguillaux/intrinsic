@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const loader = document.getElementById('loader');
     const tableContainer = document.querySelector('.table-container');
     const refreshBtn = document.getElementById('refresh-btn');
+    const exportBtn = document.getElementById('export-btn');
     const searchInput = document.getElementById('search-input');
     const indexSelect = document.getElementById('index-select');
     const configSection = document.getElementById('config-section');
@@ -65,6 +66,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (tabId === 'market-news') {
             const dateVal = newsDatePicker.value.trim();
             if (dateVal) {
+                if (dateVal.includes('-')) {
+                    return `/news?date=${dateVal}`;
+                }
                 const parts = dateVal.split('/');
                 if (parts.length === 3) {
                     const formattedDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
@@ -181,6 +185,95 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
+
+        if (exportBtn) {
+            exportBtn.addEventListener('click', () => {
+                if (!currentData || currentData.length === 0) {
+                    alert('No data to export.');
+                    return;
+                }
+                exportDataToCSV(currentData, TAB_CONFIG[currentTab].type);
+            });
+        }
+    }
+
+    function exportDataToCSV(data, type) {
+        if (!data || data.length === 0) return;
+
+        let csvContent = "";
+        let headers = [];
+
+        if (type === 'stock') {
+            headers = ["Ticker", "Name", "Price", "PEG", "P/FCF", "P/E", "EPS", "Debt/EBIT", "ROIC (%)", "ROE (%)", "Net Margin (%)", "Dividend Yield (%)"];
+        } else if (type === 'reit') {
+            if (currentTab === 'br-fiis') {
+                headers = ["Ticker", "Name", "Price", "Min 52W", "Max 52W", "Dividend Yield (%)", "Val. (12M) (%)", "P/VP", "VP/Cota", "Caixa (%)", "DY CAGR (3y) (%)", "Val. CAGR (3y) (%)", "Cotistas"];
+            } else {
+                headers = ["Ticker", "Name", "Price", "Dividend Yield (%)", "P/VPA"];
+            }
+        } else {
+            return;
+        }
+
+        csvContent += headers.join(";") + "\n";
+
+        const escapeCSV = (val) => {
+            if (val === null || val === undefined) return '';
+            let str = String(val);
+            if (str.includes(';') || str.includes('"') || str.includes('\n')) {
+                str = '"' + str.replace(/"/g, '""') + '"';
+            }
+            return str;
+        };
+
+        data.forEach(item => {
+            let row = [];
+            let nameSub = item.name ? item.name : 'Unknown';
+            row.push(escapeCSV(item.ticker));
+            row.push(escapeCSV(nameSub));
+            row.push(escapeCSV(item.price));
+
+            if (type === 'stock') {
+                row.push(escapeCSV(item.peg));
+                row.push(escapeCSV(item.p_fcf));
+                row.push(escapeCSV(item.pe));
+                row.push(escapeCSV(item.eps));
+                row.push(escapeCSV(item.debt_ebit));
+                row.push(escapeCSV(item.roic));
+                row.push(escapeCSV(item.roe));
+                row.push(escapeCSV(item.net_margin));
+                row.push(escapeCSV(item.dividend_yield));
+            } else if (type === 'reit') {
+                if (currentTab === 'br-fiis') {
+                    row.push(escapeCSV(item.min_52w));
+                    row.push(escapeCSV(item.max_52w));
+                    row.push(escapeCSV(item.dividend_yield));
+                    row.push(escapeCSV(item.val_12m));
+                    row.push(escapeCSV(item.p_vpa));
+                    row.push(escapeCSV(item.vp_cota));
+                    row.push(escapeCSV(item.caixa));
+                    row.push(escapeCSV(item.dy_cagr));
+                    row.push(escapeCSV(item.val_cagr));
+                    row.push(escapeCSV(item.cotistas));
+                } else {
+                    row.push(escapeCSV(item.dividend_yield));
+                    row.push(escapeCSV(item.p_vpa));
+                }
+            }
+            csvContent += row.join(";") + "\n";
+        });
+
+        const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        const filename = `${currentTab}_export_${new Date().toISOString().split('T')[0]}.csv`;
+        link.setAttribute("download", filename);
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     }
 
     async function loadTabData(tabId) {
@@ -206,9 +299,17 @@ document.addEventListener('DOMContentLoaded', () => {
             newsDatePicker.style.display = 'block';
             if (newsTypeFilter) newsTypeFilter.style.display = 'block';
             if (manualAssetsSection) manualAssetsSection.style.display = 'none';
+            if (exportBtn) exportBtn.style.display = 'none';
         } else {
             newsDatePicker.style.display = 'none';
             if (newsTypeFilter) newsTypeFilter.style.display = 'none';
+            if (exportBtn) {
+                if (config.type === 'config') {
+                    exportBtn.style.display = 'none';
+                } else {
+                    exportBtn.style.display = 'block';
+                }
+            }
         }
 
         if (tabId === 'br-stocks' || tabId === 'us-stocks') {

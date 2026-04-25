@@ -63,7 +63,7 @@
                 </div>
                 
                 <div class="filters-container" id="filters-container">
-                    <input type="text" id="news-date-picker" class="date-input" placeholder="DD/MM/YYYY" style="display: none; width: 140px; text-align: center;">
+                    <input type="date" id="news-date-picker" class="date-input" style="display: none; width: 140px; text-align: center;">
                     <select id="news-type-filter" class="index-select" style="display: none; width: 180px; text-align: center; margin-left: 0.5rem; background: var(--bg-surface-hover); color: var(--text-primary); border: 1px solid var(--border);">
                         <option value="">All Types</option>
                         <option value="Fato Relevante">Fato Relevante</option>
@@ -75,6 +75,7 @@
                         <option value="Ata">Ata</option>
                         <option value="Assembleia">Assembleia</option>
                     </select>
+                    <button class="btn btn-primary" id="export-btn" style="display: none; margin-right: 0.5rem; background: var(--success); color: var(--bg-surface);">EXPORT EXCEL</button>
                     <div class="search-box">
                         <input type="text" id="search-input" placeholder="Search ticker or name...">
                     </div>
