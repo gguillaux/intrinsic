@@ -5,6 +5,13 @@ set -e
 
 echo "Starting Intrinsic Pro v2.0..."
 
+# Clean up any existing processes on ports 8000 and 3000
+echo "Cleaning up any existing processes on ports 8000 and 3000..."
+fuser -k 8000/tcp 2>/dev/null || true
+fuser -k 3000/tcp 2>/dev/null || true
+sleep 1
+
+
 # Start Backend
 echo "Starting Backend (uvicorn) on port 8000..."
 # Ensure we are in the project root
