@@ -355,3 +355,28 @@ tbody tr:hover .good-metric, tbody tr:hover .bad-metric {
 ::-webkit-scrollbar-thumb {
     background: var(--border);
 }
+
+/* Ranking Colors */
+body.theme-dark .rank-1 { background-color: rgba(69, 165, 174, 0.5); }
+body.theme-dark .rank-2 { background-color: rgba(69, 165, 174, 0.4); }
+body.theme-dark .rank-3 { background-color: rgba(69, 165, 174, 0.3); }
+body.theme-dark .rank-4 { background-color: rgba(69, 165, 174, 0.2); }
+body.theme-dark .rank-5 { background-color: rgba(69, 165, 174, 0.1); }
+
+body.theme-light .rank-1 { background-color: rgba(69, 165, 174, 0.5); }
+body.theme-light .rank-2 { background-color: rgba(69, 165, 174, 0.4); }
+body.theme-light .rank-3 { background-color: rgba(69, 165, 174, 0.3); }
+body.theme-light .rank-4 { background-color: rgba(69, 165, 174, 0.2); }
+body.theme-light .rank-5 { background-color: rgba(69, 165, 174, 0.1); }
+
+body.theme-dark .rank-1:hover { background-color: rgba(69, 165, 174, 0.6); }
+body.theme-dark .rank-2:hover { background-color: rgba(69, 165, 174, 0.5); }
+body.theme-dark .rank-3:hover { background-color: rgba(69, 165, 174, 0.4); }
+body.theme-dark .rank-4:hover { background-color: rgba(69, 165, 174, 0.3); }
+body.theme-dark .rank-5:hover { background-color: rgba(69, 165, 174, 0.2); }
+
+body.theme-light .rank-1:hover { background-color: rgba(69, 165, 174, 0.6); }
+body.theme-light .rank-2:hover { background-color: rgba(69, 165, 174, 0.5); }
+body.theme-light .rank-3:hover { background-color: rgba(69, 165, 174, 0.4); }
+body.theme-light .rank-4:hover { background-color: rgba(69, 165, 174, 0.3); }
+body.theme-light .rank-5:hover { background-color: rgba(69, 165, 174, 0.2); }

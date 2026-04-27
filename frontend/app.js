@@ -25,6 +25,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const manualAssetsContainer = document.getElementById('manual-assets-input-container');
     const manualAssetsTextarea = document.getElementById('manual-assets-textarea');
 
+    if (newsDatePicker) {
+        flatpickr(newsDatePicker, {
+            dateFormat: "d/m/Y",
+            allowInput: true
+        });
+    }
+
     let currentTab = 'br-stocks';
     let currentData = [];
     let currentSort = { column: null, asc: true };
@@ -204,7 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let headers = [];
 
         if (type === 'stock') {
-            headers = ["Ticker", "Name", "Price", "PEG", "P/FCF", "P/E", "EPS", "Debt/EBIT", "ROIC (%)", "ROE (%)", "Net Margin (%)", "Dividend Yield (%)"];
+            headers = ["Rank", "Ticker", "Name", "Price", "PEG", "P/FCF", "P/E", "EPS", "Debt/EBIT", "ROIC (%)", "ROE (%)", "Net Margin (%)", "Dividend Yield (%)", "Score"];
         } else if (type === 'reit') {
             if (currentTab === 'br-fiis') {
                 headers = ["Ticker", "Name", "Price", "Min 52W", "Max 52W", "Dividend Yield (%)", "Val. (12M) (%)", "P/VP", "VP/Cota", "Caixa (%)", "DY CAGR (3y) (%)", "Val. CAGR (3y) (%)", "Cotistas"];
@@ -229,11 +236,12 @@ document.addEventListener('DOMContentLoaded', () => {
         data.forEach(item => {
             let row = [];
             let nameSub = item.name ? item.name : 'Unknown';
-            row.push(escapeCSV(item.ticker));
-            row.push(escapeCSV(nameSub));
-            row.push(escapeCSV(item.price));
 
             if (type === 'stock') {
+                row.push(escapeCSV(item.final_rank));
+                row.push(escapeCSV(item.ticker));
+                row.push(escapeCSV(nameSub));
+                row.push(escapeCSV(item.price));
                 row.push(escapeCSV(item.peg));
                 row.push(escapeCSV(item.p_fcf));
                 row.push(escapeCSV(item.pe));
@@ -243,7 +251,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 row.push(escapeCSV(item.roe));
                 row.push(escapeCSV(item.net_margin));
                 row.push(escapeCSV(item.dividend_yield));
+                row.push(escapeCSV(item.rank_score));
             } else if (type === 'reit') {
+                row.push(escapeCSV(item.ticker));
+                row.push(escapeCSV(nameSub));
+                row.push(escapeCSV(item.price));
                 if (currentTab === 'br-fiis') {
                     row.push(escapeCSV(item.min_52w));
                     row.push(escapeCSV(item.max_52w));
@@ -274,6 +286,58 @@ document.addEventListener('DOMContentLoaded', () => {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
+    }
+
+    function calculateRanking(data, type) {
+        if (type !== 'stock') return;
+        
+        data.forEach(item => { item.rank_score = 0; });
+        
+        const indicators = [
+            { key: 'peg', filter: v => v > 0 && v <= 1, sortAsc: true },
+            { key: 'p_fcf', filter: v => v > 0, sortAsc: true },
+            { key: 'pe', filter: v => v > 0, sortAsc: true },
+            { key: 'eps', filter: v => v > 0, sortAsc: false },
+            { key: 'debt_ebit', filter: v => v > 0, sortAsc: true },
+            { key: 'roic', filter: v => v > 0, sortAsc: false },
+            { key: 'roe', filter: v => v > 0, sortAsc: false },
+            { key: 'net_margin', filter: v => v > 0, sortAsc: false },
+            { key: 'dividend_yield', filter: v => v > 0, sortAsc: false }
+        ];
+        
+        indicators.forEach(ind => {
+            let validItems = [];
+            let invalidItems = [];
+            
+            data.forEach(item => {
+                const val = item[ind.key];
+                if (val !== null && val !== undefined && ind.filter(val)) {
+                    validItems.push(item);
+                } else {
+                    invalidItems.push(item);
+                }
+            });
+            
+            validItems.sort((a, b) => {
+                let va = a[ind.key];
+                let vb = b[ind.key];
+                return ind.sortAsc ? (va - vb) : (vb - va);
+            });
+            
+            validItems.forEach((item, index) => {
+                item.rank_score += (index + 1);
+            });
+            
+            const invalidPenalty = validItems.length + 1;
+            invalidItems.forEach(item => {
+                item.rank_score += invalidPenalty;
+            });
+        });
+        
+        let sortedByScore = [...data].sort((a, b) => a.rank_score - b.rank_score);
+        sortedByScore.forEach((item, index) => {
+            item.final_rank = index + 1;
+        });
     }
 
     async function loadTabData(tabId) {
@@ -334,6 +398,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             currentData = data;
             
+            if (config.type === 'stock') {
+                calculateRanking(currentData, config.type);
+                if (!currentSort.column) {
+                    currentSort = { column: 'final_rank', asc: true };
+                }
+            }
+            
             if (currentSort.column) sortData();
             renderTableBody(currentData, config.type);
             tableContainer.style.display = 'block';
@@ -353,6 +424,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (type === 'stock') {
             tableHeaderRow.innerHTML = `
+                <th data-sort="final_rank">Rank${getIcon('final_rank')}</th>
                 <th data-sort="ticker">Ticker / Name${getIcon('ticker')}</th>
                 <th data-sort="price">Price${getIcon('price')}</th>
                 <th data-sort="peg">PEG${getIcon('peg')}</th>
@@ -364,6 +436,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <th data-sort="roe">ROE${getIcon('roe')}</th>
                 <th data-sort="net_margin">Net Mrg${getIcon('net_margin')}</th>
                 <th data-sort="dividend_yield">Div. Yield${getIcon('dividend_yield')}</th>
+                <th data-sort="rank_score">Score${getIcon('rank_score')}</th>
             `;
         } else if (type === 'reit') {
             if (currentTab === 'br-fiis') {
@@ -551,13 +624,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Normal stock/reit parsing
             const nameSub = item.name ? item.name : 'Unknown';
-            let rowHTML = `<tr>
-                <td class="ticker-cell">
-                    ${item.ticker}
-                    <span class="name-sub">${nameSub}</span>
-                </td>
-                <td>${formatCurrency(item.price)}</td>
-            `;
+            let rowHTML = "";
 
             if (type === 'stock') {
                 const fcfClass = (item.p_fcf > 0 && item.p_fcf <= 15) ? 'good-metric' : ((item.p_fcf < 0 || item.p_fcf > 30) ? 'bad-metric' : '');
@@ -569,7 +636,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 const roeClass = item.roe > 15 ? 'good-metric' : '';
                 const marginClass = item.net_margin > 10 ? 'good-metric' : '';
 
-                rowHTML += `
+                let rankIcon = '';
+                let rankClass = '';
+                if (item.final_rank === 1) { rankIcon = '🏆'; rankClass = 'rank-1'; }
+                else if (item.final_rank === 2) { rankIcon = '🏅'; rankClass = 'rank-2'; }
+                else if (item.final_rank === 3) { rankIcon = '🥉'; rankClass = 'rank-3'; }
+                else if (item.final_rank === 4) { rankIcon = '🎖️'; rankClass = 'rank-4'; }
+                else if (item.final_rank === 5) { rankIcon = '🌟'; rankClass = 'rank-5'; }
+
+                rowHTML += `<tr class="${rankClass}">
+                    <td style="font-size: 1.1rem; text-align: center; font-weight: bold;">${item.final_rank || '-'} ${rankIcon}</td>
+                    <td class="ticker-cell">
+                        ${item.ticker}
+                        <span class="name-sub">${nameSub}</span>
+                    </td>
+                    <td>${formatCurrency(item.price)}</td>
                     <td class="${pegClass}">${formatNumber(item.peg)}</td>
                     <td class="${fcfClass}">${item.p_fcf !== null && item.p_fcf !== undefined ? item.p_fcf.toFixed(2) : '-'}</td>
                     <td class="${peClass}">${formatNumber(item.pe)}</td>
@@ -579,8 +660,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="${roeClass}">${formatPercent(item.roe)}</td>
                     <td class="${marginClass}">${formatPercent(item.net_margin)}</td>
                     <td class="${dyClass}">${formatPercent(item.dividend_yield)}</td>
-                `;
+                    <td style="font-weight: bold;">${item.rank_score}</td>
+                </tr>`;
             } else if (type === 'reit') {
+                rowHTML += `<tr>
+                <td class="ticker-cell">
+                    ${item.ticker}
+                    <span class="name-sub">${nameSub}</span>
+                </td>
+                <td>${formatCurrency(item.price)}</td>
+                `;
                 if (currentTab === 'br-fiis') {
                     const dyClass = (item.dividend_yield > 6) ? 'good-metric' : '';
                     const pVpaClass = (item.p_vpa < 1 && item.p_vpa > 0) ? 'good-metric' : (item.p_vpa > 1.2 ? 'bad-metric' : '');

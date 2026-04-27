@@ -6,6 +6,8 @@
     <title>Intrinsic - Valuation Dashboard</title>
     <link rel="stylesheet" href="index.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" type="text/css" href="https://npmcdn.com/flatpickr/dist/themes/dark.css">
 </head>
 <body>
     <div class="app-container">
@@ -63,7 +65,7 @@
                 </div>
                 
                 <div class="filters-container" id="filters-container">
-                    <input type="date" id="news-date-picker" class="date-input" style="display: none; width: 140px; text-align: center;">
+                    <input type="text" id="news-date-picker" class="date-input" placeholder="DD/MM/YYYY" style="display: none; width: 140px; text-align: center;">
                     <select id="news-type-filter" class="index-select" style="display: none; width: 180px; text-align: center; margin-left: 0.5rem; background: var(--bg-surface-hover); color: var(--text-primary); border: 1px solid var(--border);">
                         <option value="">All Types</option>
                         <option value="Fato Relevante">Fato Relevante</option>
@@ -163,6 +165,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=15"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="app.js?v=16"></script>
 </body>
 </html>
