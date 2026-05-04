@@ -466,16 +466,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 tableHeaderRow.innerHTML = `
                     <th data-sort="ticker">Ticker / Name${getIcon('ticker')}</th>
                     <th data-sort="price">Price${getIcon('price')}</th>
+                    <th data-sort="dividend_yield">Div. Yield${getIcon('dividend_yield')}</th>
+                    <th data-sort="p_vpa">P/VP${getIcon('p_vpa')}</th>
+                    <th data-sort="dy_cagr">DY CAGR(3y)${getIcon('dy_cagr')}</th>
                     <th data-sort="min_52w">Min 52W${getIcon('min_52w')}</th>
                     <th data-sort="max_52w">Max 52W${getIcon('max_52w')}</th>
-                    <th data-sort="dividend_yield">Div. Yield${getIcon('dividend_yield')}</th>
                     <th data-sort="val_12m">Val.(12M)${getIcon('val_12m')}</th>
-                    <th data-sort="p_vpa">P/VP${getIcon('p_vpa')}</th>
                     <th data-sort="vp_cota">VP/Cota${getIcon('vp_cota')}</th>
                     <th data-sort="caixa">Caixa${getIcon('caixa')}</th>
-                    <th data-sort="dy_cagr">DY CAGR(3y)${getIcon('dy_cagr')}</th>
                     <th data-sort="val_cagr">Val. CAGR(3y)${getIcon('val_cagr')}</th>
                     <th data-sort="cotistas">Cotistas${getIcon('cotistas')}</th>
+
                 `;
             } else {
                 tableHeaderRow.innerHTML = `
@@ -699,16 +700,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     const colorVal12m = item.val_12m > 0 ? "good-metric" : (item.val_12m < 0 ? "bad-metric" : "");
 
                     rowHTML += `
+                        <td class="${dyClass}">${formatPercent(item.dividend_yield)}</td>
+                        <td class="${pVpaClass}">${formatNumber(item.p_vpa)}</td>
+                        <td class="${item.dy_cagr > 0 ? 'good-metric' : (item.dy_cagr < 0 ? 'bad-metric' : '')}">${formatPercent(item.dy_cagr)}</td>
                         <td>${item.min_52w !== null && item.min_52w !== undefined ? formatCurrency(item.min_52w) : '-'}</td>
                         <td>${item.max_52w !== null && item.max_52w !== undefined ? formatCurrency(item.max_52w) : '-'}</td>
-                        <td class="${dyClass}">${formatPercent(item.dividend_yield)}</td>
                         <td class="${colorVal12m}">${formatPercent(item.val_12m)}</td>
-                        <td class="${pVpaClass}">${formatNumber(item.p_vpa)}</td>
                         <td>${item.vp_cota !== null && item.vp_cota !== undefined ? formatCurrency(item.vp_cota) : '-'}</td>
                         <td>${item.caixa !== null && item.caixa !== undefined ? formatPercent(item.caixa) : '-'}</td>
-                        <td class="${item.dy_cagr > 0 ? 'good-metric' : ''}">${formatPercent(item.dy_cagr)}</td>
-                        <td class="${item.val_cagr > 0 ? 'good-metric' : ''}">${formatPercent(item.val_cagr)}</td>
+                        <td class="${item.val_cagr > 0 ? 'good-metric' : (item.val_cagr < 0 ? 'bad-metric' : '')}">${formatPercent(item.val_cagr)}</td>
                         <td>${item.cotistas !== null && item.cotistas !== undefined ? item.cotistas.toLocaleString('pt-BR') : '-'}</td>
+
                     `;
                 } else {
                     const dyClass = (item.dividend_yield > 6) ? 'good-metric' : '';
