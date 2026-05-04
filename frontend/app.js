@@ -89,6 +89,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize
     document.body.classList.add('theme-dark'); // set default theme
+    
+    // Sync cache config on boot
+    const initCacheHours = localStorage.getItem('cfg_cache_hours');
+    if (initCacheHours) {
+        fetch(`${API_BASE}/cache/config`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ hours: parseInt(initCacheHours, 10) || 24 })
+        }).catch(err => console.error("Failed to sync cache config on boot", err));
+    }
+
     bindEvents();
     loadTabData(currentTab);
 
@@ -143,12 +154,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const cUs = document.getElementById('config-us-stocks');
             const cFiis = document.getElementById('config-br-fiis');
             const cReits = document.getElementById('config-us-reits');
+            const cCache = document.getElementById('config-cache-hours');
 
             settingsBtn.addEventListener('click', () => {
                 cBr.value = localStorage.getItem('cfg_br') || '';
                 cUs.value = localStorage.getItem('cfg_us') || '';
                 cFiis.value = localStorage.getItem('cfg_fiis') || '';
                 cReits.value = localStorage.getItem('cfg_reits') || '';
+                cCache.value = localStorage.getItem('cfg_cache_hours') || '24';
                 settingsModal.style.display = 'flex';
             });
 
@@ -159,6 +172,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.setItem('cfg_us', cUs.value.trim());
                 localStorage.setItem('cfg_fiis', cFiis.value.trim());
                 localStorage.setItem('cfg_reits', cReits.value.trim());
+                
+                const cacheHours = parseInt(cCache.value.trim(), 10) || 24;
+                localStorage.setItem('cfg_cache_hours', cacheHours);
+                
+                fetch(`${API_BASE}/cache/config`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ hours: cacheHours })
+                }).catch(err => console.error("Failed to update cache config", err));
+
                 settingsModal.style.display = 'none';
                 loadTabData(currentTab);
             });

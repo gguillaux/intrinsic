@@ -115,7 +115,7 @@ import requests_cache
 @router.post("/cache/clear")
 async def clear_cache():
     try:
-        session = requests_cache.CachedSession('statusinvest_cache')
+        session = requests_cache.CachedSession('intrinsic_statusinvest.cache')
         session.cache.clear()
         
         if os.path.exists("data.db"):
@@ -123,5 +123,17 @@ async def clear_cache():
         from ..database import init_db
         init_db()
         return {"status": "Cache Cleared"}
+    except Exception as e:
+        return {"status": "Error", "message": str(e)}
+
+class CacheConfig(BaseModel):
+    hours: int
+
+@router.post("/cache/config")
+async def config_cache(config: CacheConfig):
+    from ..services.data_service import update_cache_expiration
+    try:
+        update_cache_expiration(config.hours)
+        return {"status": "Cache Updated", "hours": config.hours}
     except Exception as e:
         return {"status": "Error", "message": str(e)}

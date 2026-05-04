@@ -22,3 +22,8 @@ class IndexComposition(BaseModel):
         indexes = (
             (('index_name', 'ticker'), True),
         )
+
+class ParsedMetricsCache(BaseModel):
+    ticker = CharField(unique=True)
+    data = TextField()
+    last_updated = DateTimeField(default=datetime.datetime.now)

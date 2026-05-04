@@ -1,10 +1,29 @@
 import yfinance as yf
 import requests_cache
 from datetime import timedelta
+import datetime
+import json
 from typing import Dict, Any
+from ..models import ParsedMetricsCache
 
-# Create a cached session for status invest (24h)
+# Create a cached session for status invest (24h default)
 status_invest_session = requests_cache.CachedSession('intrinsic_statusinvest.cache', expire_after=timedelta(hours=24))
+
+def update_cache_expiration(hours: int):
+    global status_invest_session
+    status_invest_session = requests_cache.CachedSession('intrinsic_statusinvest.cache', expire_after=timedelta(hours=hours))
+
+def _get_cache_hours() -> int:
+    try:
+        exp = getattr(getattr(status_invest_session, 'settings', None), 'expire_after', None)
+        if isinstance(exp, timedelta):
+            return int(exp.total_seconds() / 3600)
+    except:
+        pass
+    return 24
+
+def _is_valid_data(data: Dict[str, Any]) -> bool:
+    return data.get("price") is not None
 
 def _init_empty_metrics(ticker: str) -> Dict[str, Any]:
     return {
@@ -75,6 +94,18 @@ def _compute_ttm_fcf(ticker: str, data: Dict[str, Any], tc: yf.Ticker) -> None:
 
 def fetch_stock_metrics(ticker: str, is_us_reit: bool = False) -> Dict[str, Any]:
     """Fetches stock metrics into a unified dictionary format."""
+    hours = _get_cache_hours()
+    threshold = datetime.datetime.now() - datetime.timedelta(hours=hours)
+    cached_record = ParsedMetricsCache.get_or_none(ParsedMetricsCache.ticker == ticker)
+    
+    if cached_record and cached_record.last_updated >= threshold:
+        try:
+            cached_data = json.loads(cached_record.data)
+            if _is_valid_data(cached_data):
+                return cached_data
+        except Exception:
+            pass
+
     data = _init_empty_metrics(ticker)
     try:
         tc = yf.Ticker(ticker)
@@ -114,10 +145,33 @@ def fetch_stock_metrics(ticker: str, is_us_reit: bool = False) -> Dict[str, Any]
     except Exception as e:
         print(f"yfinance price error for {ticker}: {e}")
         
+    if _is_valid_data(data):
+        try:
+            if cached_record:
+                cached_record.data = json.dumps(data)
+                cached_record.last_updated = datetime.datetime.now()
+                cached_record.save()
+            else:
+                ParsedMetricsCache.create(ticker=ticker, data=json.dumps(data))
+        except Exception as e:
+            print(f"Cache save error for {ticker}: {e}")
+            
     return data
 
 def fetch_reit_metrics(ticker: str) -> Dict[str, Any]:
     """Fetches FII/REIT metrics target."""
+    hours = _get_cache_hours()
+    threshold = datetime.datetime.now() - datetime.timedelta(hours=hours)
+    cached_record = ParsedMetricsCache.get_or_none(ParsedMetricsCache.ticker == ticker)
+    
+    if cached_record and cached_record.last_updated >= threshold:
+        try:
+            cached_data = json.loads(cached_record.data)
+            if _is_valid_data(cached_data):
+                return cached_data
+        except Exception:
+            pass
+
     data = _init_empty_metrics(ticker)
     from bs4 import BeautifulSoup
     def str_to_float(s):
@@ -128,32 +182,55 @@ def fetch_reit_metrics(ticker: str) -> Dict[str, Any]:
         
     try:
         si_ticker = ticker.replace(".SA", "").upper()
-        url = f'https://statusinvest.com.br/fundos-imobiliarios/{si_ticker.lower()}'
         headers = {'User-Agent': 'Mozilla/5.0'}
-        res = status_invest_session.get(url, headers=headers)
-        if res.status_code == 200:
-            soup = BeautifulSoup(res.text, 'html.parser')
-            
-            name_tag = soup.find('h1')
-            if name_tag:
-                data["name"] = name_tag.text.split('-')[-1].strip()
-            
-            for title in soup.find_all('h3', class_='title'):
-                val_tag = title.find_next('strong', class_='value')
-                if val_tag:
-                    txt = title.text.strip().lower()
-                    val = str_to_float(val_tag.text.strip())
-                    if 'valor atual' in txt: data['price'] = val
-                    elif 'min. 52 semanas' in txt: data['min_52w'] = val
-                    elif 'máx. 52 semanas' in txt: data['max_52w'] = val
-                    elif 'dividend yield' in txt: data['dividend_yield'] = val
-                    elif 'valorização (12m)' in txt: data['val_12m'] = val
-                    elif 'val. patrimonial p/cota' in txt: data['vp_cota'] = val
-                    elif 'p/vp' in txt: data['p_vpa'] = val
-                    elif 'valor em caixa' in txt: data['caixa'] = val
-                    elif 'dy cagr (3 anos)' in txt: data['dy_cagr'] = val
-                    elif 'valor cagr (3 anos)' in txt: data['val_cagr'] = val
-                    elif 'cotistas' in txt: data['cotistas'] = int(val) if val else None
+        categories = ['fundos-imobiliarios', 'fiagros', 'fiinfras']
+        
+        for category in categories:
+            url = f'https://statusinvest.com.br/{category}/{si_ticker.lower()}'
+            res = status_invest_session.get(url, headers=headers)
+            if res.status_code == 200:
+                soup = BeautifulSoup(res.text, 'html.parser')
+                
+                name_tag = soup.find('h1')
+                if name_tag and name_tag.text.strip():
+                    # Check if the title indicates "Error" or "Not Found" - StatusInvest sometimes returns 200 with an error page
+                    if 'erro' in name_tag.text.lower() or 'não encontram' in name_tag.text.lower() or 'ops' in name_tag.text.lower():
+                        continue
+                    
+                    data["name"] = name_tag.text.split('-')[-1].strip()
+                    
+                    for title in soup.find_all('h3', class_='title'):
+                        val_tag = title.find_next('strong', class_='value')
+                        if val_tag:
+                            txt = title.text.strip().lower()
+                            val = str_to_float(val_tag.text.strip())
+                            if 'valor atual' in txt: data['price'] = val
+                            elif 'min. 52 semanas' in txt: data['min_52w'] = val
+                            elif 'máx. 52 semanas' in txt: data['max_52w'] = val
+                            elif 'dividend yield' in txt or txt.startswith('dy do '): data['dividend_yield'] = val
+                            elif 'valorização (12m)' in txt: data['val_12m'] = val
+                            elif 'val. patrimonial p/cota' in txt: data['vp_cota'] = val
+                            elif 'p/vp' in txt: data['p_vpa'] = val
+                            elif 'valor em caixa' in txt: data['caixa'] = val
+                            elif 'dy cagr (3 anos)' in txt: data['dy_cagr'] = val
+                            elif 'valor cagr (3 anos)' in txt: data['val_cagr'] = val
+                            elif 'cotistas' in txt: data['cotistas'] = int(val) if val else None
+                            
+                    if data.get("price") is not None:
+                        break # Successfully scraped this category
+
     except Exception as e:
         print(f"Error fetching REIT {ticker}: {e}")
+        
+    if _is_valid_data(data):
+        try:
+            if cached_record:
+                cached_record.data = json.dumps(data)
+                cached_record.last_updated = datetime.datetime.now()
+                cached_record.save()
+            else:
+                ParsedMetricsCache.create(ticker=ticker, data=json.dumps(data))
+        except Exception as e:
+            print(f"Cache save error for {ticker}: {e}")
+            
     return data
