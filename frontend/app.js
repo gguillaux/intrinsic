@@ -155,6 +155,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const cFiis = document.getElementById('config-br-fiis');
             const cReits = document.getElementById('config-us-reits');
             const cCache = document.getElementById('config-cache-hours');
+            const cNtnb = document.getElementById('config-ntnb');
+            const cSpread = document.getElementById('config-spread');
+            const cIpca = document.getElementById('config-ipca');
+            const cSelic = document.getElementById('config-selic');
 
             settingsBtn.addEventListener('click', () => {
                 cBr.value = localStorage.getItem('cfg_br') || '';
@@ -162,6 +166,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 cFiis.value = localStorage.getItem('cfg_fiis') || '';
                 cReits.value = localStorage.getItem('cfg_reits') || '';
                 cCache.value = localStorage.getItem('cfg_cache_hours') || '24';
+                cNtnb.value = localStorage.getItem('cfg_ntnb') || '';
+                cSpread.value = localStorage.getItem('cfg_spread') || '';
+                cIpca.value = localStorage.getItem('cfg_ipca') || '';
+                cSelic.value = localStorage.getItem('cfg_selic') || '';
                 settingsModal.style.display = 'flex';
             });
 
@@ -172,6 +180,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.setItem('cfg_us', cUs.value.trim());
                 localStorage.setItem('cfg_fiis', cFiis.value.trim());
                 localStorage.setItem('cfg_reits', cReits.value.trim());
+                localStorage.setItem('cfg_ntnb', cNtnb.value.trim());
+                localStorage.setItem('cfg_spread', cSpread.value.trim());
+                localStorage.setItem('cfg_ipca', cIpca.value.trim());
+                localStorage.setItem('cfg_selic', cSelic.value.trim());
                 
                 const cacheHours = parseInt(cCache.value.trim(), 10) || 24;
                 localStorage.setItem('cfg_cache_hours', cacheHours);
@@ -237,7 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
             headers = ["Rank", "Ticker", "Name", "Price", "PEG", "P/FCF", "P/E", "EPS", "Debt/EBIT", "ROIC (%)", "ROE (%)", "Net Margin (%)", "Dividend Yield (%)", "Score"];
         } else if (type === 'reit') {
             if (currentTab === 'br-fiis') {
-                headers = ["Ticker", "Name", "Price", "Min 52W", "Max 52W", "Dividend Yield (%)", "Val. (12M) (%)", "P/VP", "VP/Cota", "Caixa (%)", "DY CAGR (3y) (%)", "Val. CAGR (3y) (%)", "Cotistas"];
+                headers = ["Ticker", "Name", "Price", "Ceiling Price", "Dividend Yield (%)", "P/VP", "DY CAGR (3y) (%)", "Min 52W", "Max 52W", "Val. (12M) (%)", "VP/Cota", "Caixa (%)", "Val. CAGR (3y) (%)", "Cotistas", "Sharpe Ratio"];
             } else {
                 headers = ["Ticker", "Name", "Price", "Dividend Yield (%)", "P/VPA"];
             }
@@ -280,16 +292,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 row.push(escapeCSV(nameSub));
                 row.push(escapeCSV(item.price));
                 if (currentTab === 'br-fiis') {
+                    row.push(escapeCSV(item.ceiling_price));
+                    row.push(escapeCSV(item.dividend_yield));
+                    row.push(escapeCSV(item.p_vpa));
+                    row.push(escapeCSV(item.dy_cagr));
                     row.push(escapeCSV(item.min_52w));
                     row.push(escapeCSV(item.max_52w));
-                    row.push(escapeCSV(item.dividend_yield));
                     row.push(escapeCSV(item.val_12m));
-                    row.push(escapeCSV(item.p_vpa));
                     row.push(escapeCSV(item.vp_cota));
                     row.push(escapeCSV(item.caixa));
-                    row.push(escapeCSV(item.dy_cagr));
                     row.push(escapeCSV(item.val_cagr));
                     row.push(escapeCSV(item.cotistas));
+                    row.push(escapeCSV(item.sharpe_ratio));
                 } else {
                     row.push(escapeCSV(item.dividend_yield));
                     row.push(escapeCSV(item.p_vpa));
@@ -419,6 +433,33 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error("Network response was not ok");
             
             const data = await response.json();
+            
+            if (tabId === 'br-fiis') {
+                const ntnb = parseFloat(localStorage.getItem('cfg_ntnb')) || 6.00;
+                const spread = parseFloat(localStorage.getItem('cfg_spread')) || 4.00;
+                const selic = parseFloat(localStorage.getItem('cfg_selic')) || 10.50;
+                const denom = ntnb + spread;
+                data.forEach(item => {
+                    item.ceiling_price = (denom !== 0 && item.price != null && item.dividend_yield != null) 
+                        ? ((item.price * item.dividend_yield) / denom) 
+                        : null;
+                        
+                    if (item.min_52w && item.max_52w && item.min_52w > 0 && item.val_cagr !== null) {
+                        const lnHL = Math.log(item.max_52w / item.min_52w);
+                        const parkinsonVol = (1 / (2 * Math.sqrt(Math.LN2))) * lnHL;
+                        const returnDec = item.val_cagr / 100;
+                        const selicDec = selic / 100;
+                        if (parkinsonVol > 0) {
+                            item.sharpe_ratio = (returnDec - selicDec) / parkinsonVol;
+                        } else {
+                            item.sharpe_ratio = null;
+                        }
+                    } else {
+                        item.sharpe_ratio = null;
+                    }
+                });
+            }
+            
             currentData = data;
             
             if (config.type === 'stock') {
@@ -466,6 +507,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 tableHeaderRow.innerHTML = `
                     <th data-sort="ticker">Ticker / Name${getIcon('ticker')}</th>
                     <th data-sort="price">Price${getIcon('price')}</th>
+                    <th data-sort="ceiling_price">Ceiling Price${getIcon('ceiling_price')}</th>
                     <th data-sort="dividend_yield">Div. Yield${getIcon('dividend_yield')}</th>
                     <th data-sort="p_vpa">P/VP${getIcon('p_vpa')}</th>
                     <th data-sort="dy_cagr">DY CAGR(3y)${getIcon('dy_cagr')}</th>
@@ -476,6 +518,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <th data-sort="caixa">Caixa${getIcon('caixa')}</th>
                     <th data-sort="val_cagr">Val. CAGR(3y)${getIcon('val_cagr')}</th>
                     <th data-sort="cotistas">Cotistas${getIcon('cotistas')}</th>
+                    <th data-sort="sharpe_ratio">Sharpe Ratio${getIcon('sharpe_ratio')}</th>
 
                 `;
             } else {
@@ -700,6 +743,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const colorVal12m = item.val_12m > 0 ? "good-metric" : (item.val_12m < 0 ? "bad-metric" : "");
 
                     rowHTML += `
+                        <td>${item.ceiling_price !== null && item.ceiling_price !== undefined ? formatCurrency(item.ceiling_price) : '-'}</td>
                         <td class="${dyClass}">${formatPercent(item.dividend_yield)}</td>
                         <td class="${pVpaClass}">${formatNumber(item.p_vpa)}</td>
                         <td class="${item.dy_cagr > 0 ? 'good-metric' : (item.dy_cagr < 0 ? 'bad-metric' : '')}">${formatPercent(item.dy_cagr)}</td>
@@ -710,6 +754,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <td>${item.caixa !== null && item.caixa !== undefined ? formatPercent(item.caixa) : '-'}</td>
                         <td class="${item.val_cagr > 0 ? 'good-metric' : (item.val_cagr < 0 ? 'bad-metric' : '')}">${formatPercent(item.val_cagr)}</td>
                         <td>${item.cotistas !== null && item.cotistas !== undefined ? item.cotistas.toLocaleString('pt-BR') : '-'}</td>
+                        <td class="${item.sharpe_ratio !== null ? (item.sharpe_ratio > 0 ? 'good-metric' : 'bad-metric') : ''}">${item.sharpe_ratio !== null ? formatNumber(item.sharpe_ratio) : '-'}</td>
 
                     `;
                 } else {
