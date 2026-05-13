@@ -1,8 +1,11 @@
+import logging
 import requests
 import datetime
 from bs4 import BeautifulSoup
 from ..models import IndexComposition
 from ..database import db
+
+logger = logging.getLogger(__name__)
 
 # Common B3 Indices
 B3_INDICES = ["IBOV", "IFIX", "SMLL", "IDIV", "IBRX"]
@@ -41,7 +44,7 @@ def fetch_and_store_indices():
         
         if records:
             IndexComposition.insert_many(records).execute()
-    print("Indices composition successfully updated in DB.")
+    logger.info("Indices composition successfully updated in DB.")
 
 def get_index_composition(index_name: str):
     """

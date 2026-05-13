@@ -600,6 +600,14 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // XSS protection for API data injected into DOM (R5)
+        const escapeHTML = (str) => {
+            if (str == null) return '';
+            const div = document.createElement('div');
+            div.textContent = String(str);
+            return div.innerHTML;
+        };
+
         const formatCurrency = (val) => val != null ? val.toLocaleString('en-US', { style: 'currency', currency: 'USD' }) : '-';
         const formatNumber = (val, dec=2) => val != null ? val.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }) : '-';
         const formatPercent = (val) => val != null ? `${val.toFixed(2)}%` : '-';
@@ -706,7 +714,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Normal stock/reit parsing
-            const nameSub = item.name ? item.name : 'Unknown';
+            const nameSub = escapeHTML(item.name ? item.name : 'Unknown');
             let rowHTML = "";
 
             if (type === 'stock') {

@@ -3,7 +3,7 @@
 # Exit on error
 set -e
 
-echo "Starting Intrinsic Pro v2.0..."
+echo "Starting Intrinsic Pro v3.0..."
 
 # Clean up any existing processes on ports 8000 and 3000
 echo "Cleaning up any existing processes on ports 8000 and 3000..."
@@ -11,12 +11,17 @@ fuser -k 8000/tcp 2>/dev/null || true
 fuser -k 3000/tcp 2>/dev/null || true
 sleep 1
 
-
-# Start Backend
-echo "Starting Backend (uvicorn) on port 8000..."
 # Ensure we are in the project root
 cd "$(dirname "$0")"
 source venv/bin/activate
+
+# Auto cache-bust app.js with content hash (R10)
+HASH=$(md5sum frontend/app.js | cut -c1-8)
+sed -i "s/app\.js?v=[a-z0-9]*/app.js?v=${HASH}/" frontend/index.html
+echo "Cache-busted app.js → v=${HASH}"
+
+# Start Backend
+echo "Starting Backend (uvicorn) on port 8000..."
 uvicorn app.main:app --host 0.0.0.0 --port 8000 &
 BACKEND_PID=$!
 

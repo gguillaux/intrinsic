@@ -1,8 +1,13 @@
+import logging
 import requests
 import datetime
 import json
 from ..models import News
 from typing import Optional
+
+logger = logging.getLogger(__name__)
+
+REQUEST_TIMEOUT = 15  # seconds
 
 def fetch_and_store_news(target_date_str: Optional[str] = None):
     """
@@ -26,7 +31,7 @@ def fetch_and_store_news(target_date_str: Optional[str] = None):
     
     headers = {"User-Agent": "Mozilla/5.0"}
     try:
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
         if response.status_code == 200:
             data = response.json()
             new_count = 0
@@ -52,9 +57,9 @@ def fetch_and_store_news(target_date_str: Optional[str] = None):
                             source="B3"
                         )
                         new_count += 1
-            print(f"Stored {new_count} new news items for {endDateStr}.")
+            logger.info("Stored %d new news items for %s", new_count, endDateStr)
     except Exception as e:
-        print("Error fetching news:", e)
+        logger.error("Failed to fetch news: %s", e)
 
     # Return fetched news from DB around the requested date
     # In SQLite DateTimeField strings are formatted nicely, we can use simple string matching
