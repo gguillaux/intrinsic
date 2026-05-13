@@ -292,7 +292,6 @@ tbody tr:hover td {
 }
 
 .ticker-cell {
-    font-weight: bold;
 }
 
 .name-sub {
@@ -309,12 +308,10 @@ tbody tr:hover .name-sub {
 
 .good-metric {
     color: var(--success);
-    font-weight: bold;
 }
 
 .bad-metric {
     color: var(--danger);
-    font-weight: bold;
 }
 
 /* Adjust colors on hover so they don't clash with the highlight */

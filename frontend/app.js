@@ -249,7 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
             headers = ["Rank", "Ticker", "Name", "Price", "PEG", "P/FCF", "P/E", "EPS", "Debt/EBIT", "ROIC (%)", "ROE (%)", "Net Margin (%)", "Dividend Yield (%)", "Score"];
         } else if (type === 'reit') {
             if (currentTab === 'br-fiis') {
-                headers = ["Ticker", "Name", "Price", "Ceiling Price", "Dividend Yield (%)", "P/VP", "DY CAGR (3y) (%)", "Min 52W", "Max 52W", "Val. (12M) (%)", "VP/Cota", "Caixa (%)", "Val. CAGR (3y) (%)", "Cotistas", "Sharpe Ratio"];
+                headers = ["Rank", "Ticker", "Name", "Price", "Ceiling Price", "Dividend Yield (%)", "P/VP", "DY CAGR (3y) (%)", "Min 52W", "Max 52W", "Val. (12M) (%)", "VP/Cota", "Caixa (%)", "Val. CAGR (3y) (%)", "Cotistas", "Sharpe Ratio", "Score"];
             } else {
                 headers = ["Ticker", "Name", "Price", "Dividend Yield (%)", "P/VPA"];
             }
@@ -288,6 +288,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 row.push(escapeCSV(item.dividend_yield));
                 row.push(escapeCSV(item.rank_score));
             } else if (type === 'reit') {
+                if (currentTab === 'br-fiis') {
+                    row.push(escapeCSV(item.final_rank));
+                }
                 row.push(escapeCSV(item.ticker));
                 row.push(escapeCSV(nameSub));
                 row.push(escapeCSV(item.price));
@@ -304,6 +307,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     row.push(escapeCSV(item.val_cagr));
                     row.push(escapeCSV(item.cotistas));
                     row.push(escapeCSV(item.sharpe_ratio));
+                    row.push(escapeCSV(item.rank_score));
                 } else {
                     row.push(escapeCSV(item.dividend_yield));
                     row.push(escapeCSV(item.p_vpa));
@@ -326,21 +330,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function calculateRanking(data, type) {
-        if (type !== 'stock') return;
+        if (type !== 'stock' && type !== 'reit') return;
         
         data.forEach(item => { item.rank_score = 0; });
         
-        const indicators = [
-            { key: 'peg', filter: v => v > 0 && v <= 1, sortAsc: true },
-            { key: 'p_fcf', filter: v => v > 0, sortAsc: true },
-            { key: 'pe', filter: v => v > 0, sortAsc: true },
-            { key: 'eps', filter: v => v > 0, sortAsc: false },
-            { key: 'debt_ebit', filter: v => v > 0, sortAsc: true },
-            { key: 'roic', filter: v => v > 0, sortAsc: false },
-            { key: 'roe', filter: v => v > 0, sortAsc: false },
-            { key: 'net_margin', filter: v => v > 0, sortAsc: false },
-            { key: 'dividend_yield', filter: v => v > 0, sortAsc: false }
-        ];
+        let indicators = [];
+        if (type === 'stock') {
+            indicators = [
+                { key: 'peg', filter: v => v > 0 && v <= 1, sortAsc: true, weight: 1 },
+                { key: 'p_fcf', filter: v => v > 0, sortAsc: true, weight: 1 },
+                { key: 'pe', filter: v => v > 0, sortAsc: true, weight: 1 },
+                { key: 'eps', filter: v => v > 0, sortAsc: false, weight: 1 },
+                { key: 'debt_ebit', filter: v => v > 0, sortAsc: true, weight: 1 },
+                { key: 'roic', filter: v => v > 0, sortAsc: false, weight: 1 },
+                { key: 'roe', filter: v => v > 0, sortAsc: false, weight: 1 },
+                { key: 'net_margin', filter: v => v > 0, sortAsc: false, weight: 1 },
+                { key: 'dividend_yield', filter: v => v > 0, sortAsc: false, weight: 1 }
+            ];
+        } else if (type === 'reit') {
+            indicators = [
+                { key: 'dy_cagr', filter: v => v !== null && v !== undefined && v !== '-', sortAsc: false, weight: 0.35 },
+                { key: 'sharpe_ratio', filter: v => v !== null && v !== undefined && v !== '-', sortAsc: false, weight: 0.35 },
+                { key: 'dividend_yield', filter: v => v !== null && v !== undefined && v !== '-', sortAsc: false, weight: 0.15 },
+                { key: 'p_vpa', filter: v => v !== null && v !== undefined && v !== '-', sortAsc: true, weight: 0.15 }
+            ];
+        }
         
         indicators.forEach(ind => {
             let validItems = [];
@@ -362,18 +376,19 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             
             validItems.forEach((item, index) => {
-                item.rank_score += (index + 1);
+                item.rank_score += (index + 1) * ind.weight;
             });
             
             const invalidPenalty = validItems.length + 1;
             invalidItems.forEach(item => {
-                item.rank_score += invalidPenalty;
+                item.rank_score += invalidPenalty * ind.weight;
             });
         });
         
         let sortedByScore = [...data].sort((a, b) => a.rank_score - b.rank_score);
         sortedByScore.forEach((item, index) => {
             item.final_rank = index + 1;
+            item.rank_score = parseFloat(item.rank_score.toFixed(2));
         });
     }
 
@@ -462,7 +477,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             currentData = data;
             
-            if (config.type === 'stock') {
+            if (config.type === 'stock' || (config.type === 'reit' && currentTab === 'br-fiis')) {
                 calculateRanking(currentData, config.type);
                 if (!currentSort.column) {
                     currentSort = { column: 'final_rank', asc: true };
@@ -505,6 +520,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (type === 'reit') {
             if (currentTab === 'br-fiis') {
                 tableHeaderRow.innerHTML = `
+                    <th data-sort="final_rank">Rank${getIcon('final_rank')}</th>
                     <th data-sort="ticker">Ticker / Name${getIcon('ticker')}</th>
                     <th data-sort="price">Price${getIcon('price')}</th>
                     <th data-sort="ceiling_price">Ceiling Price${getIcon('ceiling_price')}</th>
@@ -519,7 +535,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <th data-sort="val_cagr">Val. CAGR(3y)${getIcon('val_cagr')}</th>
                     <th data-sort="cotistas">Cotistas${getIcon('cotistas')}</th>
                     <th data-sort="sharpe_ratio">Sharpe Ratio${getIcon('sharpe_ratio')}</th>
-
+                    <th data-sort="rank_score">Score${getIcon('rank_score')}</th>
                 `;
             } else {
                 tableHeaderRow.innerHTML = `
@@ -683,7 +699,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return `<tr>
                     <td style="white-space:nowrap">${formattedDate}</td>
                     <td style="white-space:nowrap">${timePart}</td>
-                    <td style="font-weight:bold; color:var(--text-secondary)">${asset}</td>
+                    <td style="color:var(--text-secondary)">${asset}</td>
                     <td><a href="${item.link}" target="_blank" style="color:var(--text-primary); text-decoration:underline;">${finalHeadline}</a></td>
                     <td style="white-space:nowrap; color:var(--accent)">${actualNewsType}</td>
                 </tr>`;
@@ -712,7 +728,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 else if (item.final_rank === 5) { rankIcon = '🌟'; rankClass = 'rank-5'; }
 
                 rowHTML += `<tr class="${rankClass}">
-                    <td style="font-size: 1.1rem; text-align: center; font-weight: bold;">${item.final_rank || '-'} ${rankIcon}</td>
+                    <td style="font-size: 1.1rem; text-align: center;">${item.final_rank || '-'} ${rankIcon}</td>
                     <td class="ticker-cell">
                         ${item.ticker}
                         <span class="name-sub">${nameSub}</span>
@@ -727,15 +743,35 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="${roeClass}">${formatPercent(item.roe)}</td>
                     <td class="${marginClass}">${formatPercent(item.net_margin)}</td>
                     <td class="${dyClass}">${formatPercent(item.dividend_yield)}</td>
-                    <td style="font-weight: bold;">${item.rank_score}</td>
+                    <td>${item.rank_score}</td>
                 </tr>`;
             } else if (type === 'reit') {
-                rowHTML += `<tr>
+                let rankIcon = '';
+                let rankClass = '';
+                if (currentTab === 'br-fiis') {
+                    if (item.final_rank === 1) { rankIcon = '🏆'; rankClass = 'rank-1'; }
+                    else if (item.final_rank === 2) { rankIcon = '🏅'; rankClass = 'rank-2'; }
+                    else if (item.final_rank === 3) { rankIcon = '🥉'; rankClass = 'rank-3'; }
+                    else if (item.final_rank === 4) { rankIcon = '🎖️'; rankClass = 'rank-4'; }
+                    else if (item.final_rank === 5) { rankIcon = '🌟'; rankClass = 'rank-5'; }
+                }
+
+                rowHTML += `<tr class="${rankClass}">`;
+                if (currentTab === 'br-fiis') {
+                    rowHTML += `<td style="font-size: 1.1rem; text-align: center;">${item.final_rank || '-'} ${rankIcon}</td>`;
+                }
+
+                let priceStyle = '';
+                if (currentTab === 'br-fiis' && item.ceiling_price && item.price < item.ceiling_price) {
+                    priceStyle = 'color: #00FF9F;';
+                }
+
+                rowHTML += `
                 <td class="ticker-cell">
                     ${item.ticker}
                     <span class="name-sub">${nameSub}</span>
                 </td>
-                <td>${formatCurrency(item.price)}</td>
+                <td style="${priceStyle}">${formatCurrency(item.price)}</td>
                 `;
                 if (currentTab === 'br-fiis') {
                     const dyClass = (item.dividend_yield > 6) ? 'good-metric' : '';
@@ -755,7 +791,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <td class="${item.val_cagr > 0 ? 'good-metric' : (item.val_cagr < 0 ? 'bad-metric' : '')}">${formatPercent(item.val_cagr)}</td>
                         <td>${item.cotistas !== null && item.cotistas !== undefined ? item.cotistas.toLocaleString('pt-BR') : '-'}</td>
                         <td class="${item.sharpe_ratio !== null ? (item.sharpe_ratio > 0 ? 'good-metric' : 'bad-metric') : ''}">${item.sharpe_ratio !== null ? formatNumber(item.sharpe_ratio) : '-'}</td>
-
+                        <td>${item.rank_score}</td>
                     `;
                 } else {
                     const dyClass = (item.dividend_yield > 6) ? 'good-metric' : '';
