@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Intrinsic - Valuation Dashboard</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="stylesheet" href="index.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
@@ -48,6 +49,9 @@
                 </button>
                 <button class="nav-item" data-tab="market-news">
                     <span class="icon">></span> Latest News
+                </button>
+                <button class="nav-item" data-tab="about-app">
+                    <span class="icon">></span> About App
                 </button>
             </nav>
 
@@ -133,6 +137,13 @@
                     <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem;">Ativos inseridos substituirão a busca padrão. Clique em REFRESH no topo para recarregar a tabela.</div>
                 </div>
             </section>
+
+            <!-- About App Section (README.md rendered) -->
+            <section id="about-section" class="about-section" style="display: none;">
+                <div id="about-content" class="about-content">
+                    <!-- README.md rendered here -->
+                </div>
+            </section>
         </main>
     </div>
 
@@ -188,6 +199,8 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="app.js?v=16"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script src="app.js?v=0478f047"></script>
 </body>
 </html>

@@ -2,8 +2,10 @@ import logging
 from typing import List, Optional
 
 from fastapi import APIRouter
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 import asyncio
+import os
 import requests_cache
 
 from ..config import DEFAULT_BR_STOCKS, DEFAULT_US_STOCKS, DEFAULT_BR_FIIS, DEFAULT_US_REITS
@@ -152,3 +154,16 @@ async def config_cache(config: CacheConfig):
     except Exception as e:
         logger.error("Failed to update cache config", exc_info=True)
         return {"status": "Error", "message": str(e)}
+
+
+# --- Documentation Endpoint ---
+
+@router.get("/readme", response_class=PlainTextResponse)
+async def get_readme():
+    """Serves the raw README.md content for the About App tab."""
+    readme_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "README.md")
+    try:
+        with open(readme_path, "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return "README.md not found."

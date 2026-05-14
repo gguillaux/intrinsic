@@ -15,6 +15,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const indexSelect = document.getElementById('index-select');
     const configSection = document.getElementById('config-section');
     const dataSection = document.getElementById('data-section');
+    const aboutSection = document.getElementById('about-section');
+    const aboutContent = document.getElementById('about-content');
     const filtersContainer = document.getElementById('filters-container');
     const newsDatePicker = document.getElementById('news-date-picker');
     const newsTypeFilter = document.getElementById('news-type-filter');
@@ -43,7 +45,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'br-fiis': { title: 'BR FIIs', subtitle: 'Focus on High Dividend Yield and Price to Book (P/VPA)', type: 'reit' },
         'us-reits': { title: 'US REITs', subtitle: 'Focus on Low P/FCF, EPS, low Debt, P/E, and PEG < 1', type: 'stock' },
         'b3-indices': { title: 'B3 Indices Configuration', subtitle: 'Select active index for BR Stocks tab', type: 'config' },
-        'market-news': { title: 'Market News Feed', subtitle: 'Latest corporate and economic announcements (B3)', type: 'news' }
+        'market-news': { title: 'Market News Feed', subtitle: 'Latest corporate and economic announcements (B3)', type: 'news' },
+        'about-app': { title: 'About Intrinsic', subtitle: 'Architecture, features, and documentation', type: 'about' }
     };
 
     function getEndpoint(tabId) {
@@ -398,16 +401,26 @@ document.addEventListener('DOMContentLoaded', () => {
         pageTitle.textContent = config.title;
         pageSubtitle.textContent = config.subtitle;
         
-        // Handle config tab vs data tabs
+        // Handle section visibility
         if (config.type === 'config') {
             configSection.style.display = 'block';
             dataSection.style.display = 'none';
+            if (aboutSection) aboutSection.style.display = 'none';
             filtersContainer.style.display = 'none';
             if (manualAssetsSection) manualAssetsSection.style.display = 'none';
+            return;
+        } else if (config.type === 'about') {
+            configSection.style.display = 'none';
+            dataSection.style.display = 'none';
+            if (aboutSection) aboutSection.style.display = 'block';
+            filtersContainer.style.display = 'none';
+            if (manualAssetsSection) manualAssetsSection.style.display = 'none';
+            loadAboutPage();
             return;
         } else {
             configSection.style.display = 'none';
             dataSection.style.display = 'block';
+            if (aboutSection) aboutSection.style.display = 'none';
             filtersContainer.style.display = 'flex';
         }
 
@@ -815,5 +828,63 @@ document.addEventListener('DOMContentLoaded', () => {
         }).join('');
 
         tableBody.innerHTML = rows;
+    }
+
+    // --- About App Page ---
+    let aboutLoaded = false;
+
+    async function loadAboutPage() {
+        if (aboutLoaded) return; // Only fetch once
+
+        aboutContent.innerHTML = '<div style="text-align: center; padding: 3rem; color: var(--text-secondary);">Loading documentation...</div>';
+
+        try {
+            const response = await fetch(`${API_BASE}/readme`);
+            if (!response.ok) throw new Error('Failed to fetch README');
+            const markdown = await response.text();
+
+            // Configure marked with custom renderer for mermaid blocks
+            const renderer = new marked.Renderer();
+            const originalCodeRenderer = renderer.code;
+
+            renderer.code = function({ text, lang }) {
+                if (lang === 'mermaid') {
+                    return `<div class="mermaid">${text}</div>`;
+                }
+                // Default code block rendering
+                const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                return `<pre><code class="language-${lang || ''}">${escaped}</code></pre>`;
+            };
+
+            // Fix image paths: assets/ → ../assets/ (since README is at project root)
+            const fixedMarkdown = markdown.replace(/!\[([^\]]*)\]\(assets\//g, '![$1](../assets/');
+
+            marked.setOptions({
+                renderer: renderer,
+                breaks: true,
+                gfm: true,
+            });
+
+            aboutContent.innerHTML = marked.parse(fixedMarkdown);
+
+            // Initialize mermaid diagrams
+            if (typeof mermaid !== 'undefined') {
+                const isDark = document.body.classList.contains('theme-dark');
+                mermaid.initialize({
+                    startOnLoad: false,
+                    theme: isDark ? 'dark' : 'default',
+                    securityLevel: 'loose',
+                    fontFamily: 'Fira Code, monospace',
+                });
+                const mermaidElements = aboutContent.querySelectorAll('.mermaid');
+                if (mermaidElements.length > 0) {
+                    await mermaid.run({ nodes: mermaidElements });
+                }
+            }
+
+            aboutLoaded = true;
+        } catch (error) {
+            aboutContent.innerHTML = `<div style="text-align: center; padding: 3rem; color: var(--danger);">Error loading documentation: ${error.message}</div>`;
+        }
     }
 });

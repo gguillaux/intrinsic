@@ -377,3 +377,160 @@ body.theme-light .rank-2:hover { background-color: rgba(69, 165, 174, 0.5); }
 body.theme-light .rank-3:hover { background-color: rgba(69, 165, 174, 0.4); }
 body.theme-light .rank-4:hover { background-color: rgba(69, 165, 174, 0.3); }
 body.theme-light .rank-5:hover { background-color: rgba(69, 165, 174, 0.2); }
+
+/* About App Section — Rendered Markdown */
+.about-section {
+    flex: 1;
+    overflow-y: auto;
+    z-index: 3;
+    padding: 2rem 3rem;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+}
+
+.about-content {
+    max-width: 900px;
+    margin: 0 auto;
+    line-height: 1.7;
+    font-family: 'Inter', 'Roboto', sans-serif;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+}
+
+.about-content h1 {
+    font-size: 2rem;
+    margin: 0 0 1.5rem 0;
+    padding-bottom: 0.8rem;
+    border-bottom: 2px solid var(--border);
+    color: var(--accent);
+    font-family: 'Fira Code', monospace;
+}
+
+.about-content h2 {
+    font-size: 1.4rem;
+    margin: 2rem 0 1rem 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px dashed var(--border);
+    color: var(--text-primary);
+    font-family: 'Fira Code', monospace;
+}
+
+.about-content h3 {
+    font-size: 1.1rem;
+    margin: 1.5rem 0 0.8rem 0;
+    color: var(--accent);
+    font-family: 'Fira Code', monospace;
+}
+
+.about-content p {
+    margin: 0.8rem 0;
+}
+
+.about-content a {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px dashed var(--accent);
+    transition: opacity 0.15s;
+}
+
+.about-content a:hover {
+    opacity: 0.7;
+}
+
+.about-content code {
+    background: var(--bg-main);
+    color: var(--success);
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    font-family: 'Fira Code', monospace;
+    font-size: 0.85em;
+}
+
+.about-content pre {
+    background: var(--bg-main);
+    border: 1px solid var(--border);
+    padding: 1rem 1.2rem;
+    overflow-x: auto;
+    margin: 1rem 0;
+    border-radius: 4px;
+}
+
+.about-content pre code {
+    background: transparent;
+    padding: 0;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.about-content ul, .about-content ol {
+    margin: 0.8rem 0;
+    padding-left: 1.8rem;
+}
+
+.about-content li {
+    margin: 0.3rem 0;
+}
+
+.about-content blockquote {
+    border-left: 3px solid var(--accent);
+    padding: 0.5rem 1rem;
+    margin: 1rem 0;
+    background: var(--bg-main);
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.about-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.85rem;
+}
+
+.about-content table th,
+.about-content table td {
+    padding: 0.6rem 0.8rem;
+    border: 1px solid var(--border);
+    text-align: left;
+}
+
+.about-content table th {
+    background: var(--border);
+    color: var(--bg-surface);
+    font-weight: 700;
+    font-family: 'Fira Code', monospace;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+}
+
+.about-content table tr:nth-child(even) {
+    background: var(--bg-main);
+}
+
+.about-content img {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    margin: 1rem 0;
+    border-radius: 4px;
+}
+
+.about-content hr {
+    border: none;
+    border-top: 1px dashed var(--border);
+    margin: 2rem 0;
+}
+
+.about-content .mermaid {
+    background: var(--bg-main);
+    border: 1px solid var(--border);
+    padding: 1.5rem;
+    margin: 1rem 0;
+    border-radius: 4px;
+    text-align: center;
+}
+
+.about-content strong {
+    color: var(--accent);
+}
