@@ -22,6 +22,7 @@ class ValuationMetric:
     # Valuation Ratios
     p_fcf: Optional[float] = None
     pe: Optional[float] = None
+    p_a: Optional[float] = None
     eps: Optional[float] = None
     debt_ebit: Optional[float] = None
     peg: Optional[float] = None

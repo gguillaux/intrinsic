@@ -28,6 +28,7 @@ class ValuationMetricSchema(BaseModel):
     price: Optional[float] = None
     p_fcf: Optional[float] = None
     pe: Optional[float] = None
+    p_a: Optional[float] = None
     eps: Optional[float] = None
     debt_ebit: Optional[float] = None
     roic: Optional[float] = None

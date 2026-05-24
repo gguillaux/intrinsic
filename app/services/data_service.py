@@ -62,7 +62,7 @@ def _is_valid_data(data: Dict[str, Any]) -> bool:
 def _init_empty_metrics(ticker: str) -> Dict[str, Any]:
     return {
         "ticker": ticker, "name": ticker, "price": None,
-        "p_fcf": None, "pe": None, "eps": None, "debt_ebit": None,
+        "p_fcf": None, "pe": None, "p_a": None, "eps": None, "debt_ebit": None,
         "roic": None, "roe": None, "net_margin": None, "peg": None,
         "dividend_yield": None, "p_vpa": None,
         "min_52w": None, "max_52w": None, "val_12m": None, "vp_cota": None,
@@ -209,6 +209,17 @@ def fetch_stock_metrics(ticker: str, is_us_reit: bool = False) -> Dict[str, Any]
             data["price"] = info.get("currentPrice", info.get("regularMarketPrice"))
 
         data["name"] = info.get("shortName", ticker)
+
+        # Compute P/A (Price-to-Assets = Market Cap / Total Assets)
+        market_cap = info.get('marketCap')
+        try:
+            bs = yf_ticker.balance_sheet
+            if hasattr(bs, 'index') and 'Total Assets' in bs.index and len(bs.columns) > 0:
+                total_assets = bs.loc['Total Assets'].iloc[0]
+                if market_cap and total_assets and total_assets > 0:
+                    data["p_a"] = round(float(market_cap / total_assets), 2)
+        except Exception as e:
+            logger.warning("P/A calculation failed for %s: %s", ticker, e)
 
         is_br = ticker.endswith(".SA")
         if is_br:

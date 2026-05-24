@@ -249,12 +249,12 @@ document.addEventListener('DOMContentLoaded', () => {
         let headers = [];
 
         if (type === 'stock') {
-            headers = ["Rank", "Ticker", "Name", "Price", "PEG", "P/FCF", "P/E", "EPS", "Debt/EBIT", "ROIC (%)", "ROE (%)", "Net Margin (%)", "Dividend Yield (%)", "Score"];
+            headers = ["Rank", "Ticker", "Name", "Price", "PEG", "P/FCF", "P/E", "P/A", "EPS", "Debt/EBIT", "ROIC (%)", "ROE (%)", "Net Margin (%)", "Dividend Yield (%)", "Score"];
         } else if (type === 'reit') {
             if (currentTab === 'br-fiis') {
                 headers = ["Rank", "Ticker", "Name", "Price", "Ceiling Price", "Dividend Yield (%)", "P/VP", "DY CAGR (3y) (%)", "Min 52W", "Max 52W", "Val. (12M) (%)", "VP/Cota", "Caixa (%)", "Val. CAGR (3y) (%)", "Cotistas", "Sharpe Ratio", "Score"];
             } else {
-                headers = ["Ticker", "Name", "Price", "Dividend Yield (%)", "P/VPA"];
+                headers = ["Ticker", "Name", "Price", "Dividend Yield (%)", "P/VPA", "P/A"];
             }
         } else {
             return;
@@ -283,6 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 row.push(escapeCSV(item.peg));
                 row.push(escapeCSV(item.p_fcf));
                 row.push(escapeCSV(item.pe));
+                row.push(escapeCSV(item.p_a));
                 row.push(escapeCSV(item.eps));
                 row.push(escapeCSV(item.debt_ebit));
                 row.push(escapeCSV(item.roic));
@@ -314,6 +315,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     row.push(escapeCSV(item.dividend_yield));
                     row.push(escapeCSV(item.p_vpa));
+                    row.push(escapeCSV(item.p_a));
                 }
             }
             csvContent += row.join(";") + "\n";
@@ -508,6 +510,32 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function getExternalLinksHTML(ticker) {
+        const cleanTicker = ticker.replace('.SA', '');
+        const isBR = currentTab === 'br-stocks' || currentTab === 'br-fiis';
+        const isUSReit = currentTab === 'us-reits';
+
+        // Resolve asset type paths per tab
+        let assetTypeSI, assetTypeI10;
+        if (currentTab === 'br-fiis') { assetTypeSI = 'fundos-imobiliarios'; assetTypeI10 = 'fiis'; }
+        else if (isUSReit)            { assetTypeSI = 'reits';               assetTypeI10 = 'reits'; }
+        else                          { assetTypeSI = 'acoes';               assetTypeI10 = 'acoes'; }
+
+        // SVG icons
+        const siIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>`;
+        const i10Icon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>`;
+        const tvIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>`;
+
+        let links = '';
+        if (isBR || isUSReit) {
+            links += `<a href="https://statusinvest.com.br/${assetTypeSI}/${cleanTicker.toLowerCase()}" target="_blank" rel="noopener" class="ext-link ext-link-si" title="StatusInvest">${siIcon}</a>`;
+            links += `<a href="https://investidor10.com.br/${assetTypeI10}/${cleanTicker.toLowerCase()}/" target="_blank" rel="noopener" class="ext-link ext-link-i10" title="Investidor10">${i10Icon}</a>`;
+        }
+        const tvExchange = isBR ? `BMFBOVESPA-${cleanTicker}` : cleanTicker;
+        links += `<a href="https://www.tradingview.com/symbols/${tvExchange}/forecast/" target="_blank" rel="noopener" class="ext-link ext-link-tv" title="TradingView Forecast">${tvIcon}</a>`;
+        return `<td class="links-cell">${links}</td>`;
+    }
+
     function renderTableHeaders(type) {
         const getIcon = (col) => {
             if (currentSort.column !== col) return '';
@@ -522,6 +550,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <th data-sort="peg">PEG${getIcon('peg')}</th>
                 <th data-sort="p_fcf">P/FCF${getIcon('p_fcf')}</th>
                 <th data-sort="pe">P/E${getIcon('pe')}</th>
+                <th data-sort="p_a">P/A${getIcon('p_a')}</th>
                 <th data-sort="eps">EPS${getIcon('eps')}</th>
                 <th data-sort="debt_ebit">Debt/EBIT${getIcon('debt_ebit')}</th>
                 <th data-sort="roic">ROIC${getIcon('roic')}</th>
@@ -529,6 +558,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <th data-sort="net_margin">Net Mrg${getIcon('net_margin')}</th>
                 <th data-sort="dividend_yield">Div. Yield${getIcon('dividend_yield')}</th>
                 <th data-sort="rank_score">Score${getIcon('rank_score')}</th>
+                <th>Links</th>
             `;
         } else if (type === 'reit') {
             if (currentTab === 'br-fiis') {
@@ -549,6 +579,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <th data-sort="cotistas">Cotistas${getIcon('cotistas')}</th>
                     <th data-sort="sharpe_ratio">Sharpe Ratio${getIcon('sharpe_ratio')}</th>
                     <th data-sort="rank_score">Score${getIcon('rank_score')}</th>
+                    <th>Links</th>
                 `;
             } else {
                 tableHeaderRow.innerHTML = `
@@ -556,6 +587,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <th data-sort="price">Price${getIcon('price')}</th>
                     <th data-sort="dividend_yield">Div. Yield${getIcon('dividend_yield')}</th>
                     <th data-sort="p_vpa">P/VPA${getIcon('p_vpa')}</th>
+                    <th data-sort="p_a">P/A${getIcon('p_a')}</th>
+                    <th>Links</th>
                 `;
             }
         } else if (type === 'news') {
@@ -758,6 +791,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="${pegClass}">${formatNumber(item.peg)}</td>
                     <td class="${fcfClass}">${item.p_fcf !== null && item.p_fcf !== undefined ? item.p_fcf.toFixed(2) : '-'}</td>
                     <td class="${peClass}">${formatNumber(item.pe)}</td>
+                    <td class="${(item.p_a != null && item.p_a < 1) ? 'good-metric' : (item.p_a != null && item.p_a > 3 ? 'bad-metric' : '')}">${formatNumber(item.p_a)}</td>
                     <td class="${'good-metric'}">${formatNumber(item.eps)}</td>
                     <td class="${debtEbitClass}">${formatNumber(item.debt_ebit)}</td>
                     <td class="${roicClass}">${formatPercent(item.roic)}</td>
@@ -765,6 +799,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="${marginClass}">${formatPercent(item.net_margin)}</td>
                     <td class="${dyClass}">${formatPercent(item.dividend_yield)}</td>
                     <td>${item.rank_score}</td>
+                    ${getExternalLinksHTML(item.ticker)}
                 </tr>`;
             } else if (type === 'reit') {
                 let rankIcon = '';
@@ -813,14 +848,19 @@ document.addEventListener('DOMContentLoaded', () => {
                         <td>${item.cotistas !== null && item.cotistas !== undefined ? item.cotistas.toLocaleString('pt-BR') : '-'}</td>
                         <td class="${item.sharpe_ratio !== null ? (item.sharpe_ratio > 0 ? 'good-metric' : 'bad-metric') : ''}">${item.sharpe_ratio !== null ? formatNumber(item.sharpe_ratio) : '-'}</td>
                         <td>${item.rank_score}</td>
+                        ${getExternalLinksHTML(item.ticker)}
                     `;
                 } else {
                     const dyClass = (item.dividend_yield > 6) ? 'good-metric' : '';
                     const pVpaClass = (item.p_vpa < 1 && item.p_vpa > 0) ? 'good-metric' : (item.p_vpa > 1.2 ? 'bad-metric' : '');
 
+                    const paClass = (item.p_a != null && item.p_a < 1) ? 'good-metric' : (item.p_a != null && item.p_a > 3 ? 'bad-metric' : '');
+
                     rowHTML += `
                         <td class="${dyClass}">${formatPercent(item.dividend_yield)}</td>
                         <td class="${pVpaClass}">${formatNumber(item.p_vpa)}</td>
+                        <td class="${paClass}">${formatNumber(item.p_a)}</td>
+                        ${getExternalLinksHTML(item.ticker)}
                     `;
                 }
             }
