@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const pageTitle = document.getElementById('page-title');
     const pageSubtitle = document.getElementById('page-subtitle');
     const tableHeaderRow = document.getElementById('table-header-row');
+    const tableFilterRow = document.getElementById('table-filter-row');
     const tableBody = document.getElementById('table-body');
     const loader = document.getElementById('loader');
     const tableContainer = document.querySelector('.table-container');
@@ -38,6 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentData = [];
     let currentSort = { column: null, asc: true };
     let currentNewsType = '';
+    let activeFilters = {};
 
     const TAB_CONFIG = {
         'br-stocks': { title: 'BR Stocks', subtitle: 'Focus on Low P/FCF, EPS, low Debt, P/E, and PEG < 1', type: 'stock' },
@@ -92,7 +94,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize
     document.body.classList.add('theme-dark'); // set default theme
-    
+
+    // Sidebar collapse toggle
+    const sidebar = document.getElementById('sidebar');
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+
+    if (localStorage.getItem('sidebar_collapsed') === 'true') {
+        sidebar.classList.add('collapsed');
+        sidebarToggle.textContent = '✕';
+    }
+
+    sidebarToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('collapsed');
+        const isCollapsed = sidebar.classList.contains('collapsed');
+        sidebarToggle.textContent = isCollapsed ? '✕' : '☰';
+        localStorage.setItem('sidebar_collapsed', isCollapsed);
+    });
+
     // Sync cache config on boot
     const initCacheHours = localStorage.getItem('cfg_cache_hours');
     if (initCacheHours) {
@@ -133,17 +151,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (newsTypeFilter) {
             newsTypeFilter.addEventListener('change', (e) => {
                 currentNewsType = e.target.value.toLowerCase();
-                renderTableBody(currentData, TAB_CONFIG[currentTab].type);
+                renderTableBody(getFilteredData(), TAB_CONFIG[currentTab].type);
             });
         }
 
         searchInput.addEventListener('input', (e) => {
-            const term = e.target.value.toLowerCase();
-            const filtered = currentData.filter(item => {
-                const searchStr = Object.values(item).join(' ').toLowerCase();
-                return searchStr.includes(term);
-            });
-            renderTableBody(filtered, TAB_CONFIG[currentTab].type);
+            renderTableBody(getFilteredData(), TAB_CONFIG[currentTab].type);
         });
 
         if (themeToggleBtn) {
@@ -453,6 +466,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loader.style.display = 'flex';
         tableBody.innerHTML = '';
         searchInput.value = '';
+        activeFilters = {};
         currentSort = { column: null, asc: true };
 
         try {
@@ -490,6 +504,78 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
             
+            if (tabId === 'market-news') {
+                data.forEach(item => {
+                    let datePart = '', timePart = '';
+                    const pub = item.published_at || '';
+                    if (pub.includes('T')) {
+                        datePart = pub.split('T')[0];
+                        timePart = pub.split('T')[1].split('.')[0];
+                    } else if (pub.includes(' ')) {
+                        datePart = pub.split(' ')[0];
+                        timePart = pub.split(' ')[1].split('.')[0];
+                    }
+                    
+                    let formattedDate = datePart;
+                    if (datePart) {
+                        const parts = datePart.split('-');
+                        if (parts.length === 3) formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                    }
+
+                    let asset = '-';
+                    let headlineStr = item.title || "";
+                    
+                    const tickerMatch = headlineStr.match(/\(([A-Z0-9]+)\)/);
+                    if (tickerMatch) {
+                        asset = tickerMatch[1];
+                        headlineStr = headlineStr.replace(tickerMatch[0], '').replace(/\s+/g, ' ').trim();
+                    }
+
+                    const dashParts = headlineStr.split(' - ');
+                    let companyName = dashParts[0].trim();
+                    let actualNewsType = '-';
+                    
+                    if (dashParts.length > 1 && dashParts[1].trim() !== '') {
+                        actualNewsType = dashParts[1].trim();
+                    }
+
+                    if (actualNewsType === '-') {
+                        const knownTypes = [
+                            'SUMARIO DE DECISOES', 'SUMARIO AGE', 'SUMARIO AGOE', 'SUMARIO AGO',
+                            'PROPOSTA DA ADMINISTRACAO', 'PROPOSTA AGE', 'PROPOSTA AGOE', 'PROPOSTA AGO',
+                            'EDITAL DE CONVOCACAO', 'EDITAL AGE', 'EDITAL AGOE', 'EDITAL AGO',
+                            'ATA DE REUNIAO', 'ATA AGE', 'ATA AGOE', 'ATA AGO', 'ATA RCA', 'ATA',
+                            'DEMONSTRACOES FINANCEIRAS', 'DEMONST. FINANC.', 'DEMONSTRACAO FINANCEIRA',
+                            'AVISO AOS ACIONISTAS', 'AVISO AOS DEBENTURISTAS', 'AVISO AOS COTISTAS',
+                            'FATO RELEVANTE', 'COMUNICADO AO MERCADO', 
+                            'INFORME MENSAL', 'INFORME TRIMESTRAL', 'RELATORIO GERENCIAL', 
+                            'PROVENTOS'
+                        ];
+                        
+                        const upperHeadline = companyName.toUpperCase();
+                        for (const kt of knownTypes) {
+                            if (upperHeadline.includes(kt)) {
+                                actualNewsType = kt;
+                                const regexStr = kt.split(' ').join('\\s+');
+                                companyName = companyName.replace(new RegExp(regexStr, 'ig'), '').trim();
+                                companyName = companyName.replace(/^[-:\s]+|[-:\s]+$/g, '').trim();
+                                if (!companyName) companyName = actualNewsType;
+                                break;
+                            }
+                        }
+                    }
+
+                    actualNewsType = actualNewsType.replace(/\s*-?\s*\d{2}\/\d{2}\/\d{4}(\s+\d{2}:\d{2})?\s*$/, '').trim();
+                    actualNewsType = actualNewsType.replace(/\s*-?\s*\d{2}\/\d{4}\s*$/, '').trim();
+
+                    item.parsedDate = formattedDate;
+                    item.parsedTime = timePart;
+                    item.parsedAsset = asset;
+                    item.parsedHeadline = companyName;
+                    item.parsedType = actualNewsType;
+                });
+            }
+            
             currentData = data;
             
             if (config.type === 'stock' || (config.type === 'reit' && currentTab === 'br-fiis')) {
@@ -500,7 +586,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             if (currentSort.column) sortData();
-            renderTableBody(currentData, config.type);
+            renderTableBody(getFilteredData(), config.type);
             tableContainer.style.display = 'block';
         } catch (error) {
             tableBody.innerHTML = `<tr><td colspan="10" class="bad-metric" style="text-align: center;">Error fetching data: ${error.message}</td></tr>`;
@@ -514,11 +600,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const cleanTicker = ticker.replace('.SA', '');
         const isBR = currentTab === 'br-stocks' || currentTab === 'br-fiis';
         const isUSReit = currentTab === 'us-reits';
+        const isUSStock = currentTab === 'us-stocks';
 
         // Resolve asset type paths per tab
         let assetTypeSI, assetTypeI10;
         if (currentTab === 'br-fiis') { assetTypeSI = 'fundos-imobiliarios'; assetTypeI10 = 'fiis'; }
         else if (isUSReit)            { assetTypeSI = 'reits';               assetTypeI10 = 'reits'; }
+        else if (isUSStock)           { assetTypeSI = 'acoes/eua';           assetTypeI10 = 'stocks'; }
         else                          { assetTypeSI = 'acoes';               assetTypeI10 = 'acoes'; }
 
         // SVG icons
@@ -527,7 +615,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const tvIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>`;
 
         let links = '';
-        if (isBR || isUSReit) {
+        if (isBR || isUSReit || isUSStock) {
             links += `<a href="https://statusinvest.com.br/${assetTypeSI}/${cleanTicker.toLowerCase()}" target="_blank" rel="noopener" class="ext-link ext-link-si" title="StatusInvest">${siIcon}</a>`;
             links += `<a href="https://investidor10.com.br/${assetTypeI10}/${cleanTicker.toLowerCase()}/" target="_blank" rel="noopener" class="ext-link ext-link-i10" title="Investidor10">${i10Icon}</a>`;
         }
@@ -536,10 +624,111 @@ document.addEventListener('DOMContentLoaded', () => {
         return `<td class="links-cell">${links}</td>`;
     }
 
+    function escapeHTML(str) {
+        if (str == null) return '';
+        const div = document.createElement('div');
+        div.textContent = String(str);
+        return div.innerHTML;
+    }
+
+    function getFilteredData() {
+        const globalTerm = searchInput.value.trim().toLowerCase();
+        
+        return currentData.filter(item => {
+            // 1. Global Search Filter
+            if (globalTerm) {
+                let searchStr = '';
+                if (TAB_CONFIG[currentTab].type === 'news') {
+                    searchStr = `${item.parsedDate} ${item.parsedTime} ${item.parsedAsset} ${item.parsedHeadline} ${item.parsedType}`.toLowerCase();
+                } else {
+                    searchStr = Object.values(item).join(' ').toLowerCase();
+                }
+                if (!searchStr.includes(globalTerm)) {
+                    return false;
+                }
+            }
+
+            // 2. Column-specific Header Filters
+            for (const [col, filterVal] of Object.entries(activeFilters)) {
+                if (!filterVal || filterVal.trim() === '') continue;
+
+                const term = filterVal.trim();
+                const termLower = term.toLowerCase();
+                
+                if (col === 'ticker') {
+                    const name = (item.name || '').toLowerCase();
+                    const ticker = (item.ticker || '').toLowerCase();
+                    if (!ticker.includes(termLower) && !name.includes(termLower)) {
+                        return false;
+                    }
+                    continue;
+                }
+
+                const val = item[col];
+                if (val === null || val === undefined) {
+                    return false;
+                }
+
+                // Numeric comparison
+                const numVal = parseFloat(val);
+                if (!isNaN(numVal)) {
+                    const firstChar = term[0];
+                    if (firstChar === '>' || firstChar === '<' || firstChar === '=') {
+                        let op = '';
+                        let targetStr = term;
+                        if (term.startsWith('>=') || term.startsWith('<=')) {
+                            op = term.substring(0, 2);
+                            targetStr = term.substring(2);
+                        } else {
+                            op = term.substring(0, 1);
+                            targetStr = term.substring(1);
+                        }
+
+                        const targetNum = parseFloat(targetStr);
+                        if (!isNaN(targetNum)) {
+                            if (op === '>') { if (numVal <= targetNum) return false; }
+                            else if (op === '<') { if (numVal >= targetNum) return false; }
+                            else if (op === '>=') { if (numVal < targetNum) return false; }
+                            else if (op === '<=') { if (numVal > targetNum) return false; }
+                            else if (op === '=') { if (numVal !== targetNum) return false; }
+                            continue;
+                        }
+                    }
+                }
+
+                // Default string matching
+                const valStr = String(val).toLowerCase();
+                if (!valStr.includes(termLower)) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+    }
+
+    function attachFilterListeners() {
+        const filterInputs = document.querySelectorAll('.header-filter-input');
+        filterInputs.forEach(input => {
+            input.addEventListener('input', (e) => {
+                const col = input.dataset.col;
+                activeFilters[col] = input.value;
+                renderTableBody(getFilteredData(), TAB_CONFIG[currentTab].type);
+            });
+            input.addEventListener('click', (e) => e.stopPropagation());
+            input.addEventListener('mousedown', (e) => e.stopPropagation());
+        });
+    }
+
     function renderTableHeaders(type) {
         const getIcon = (col) => {
             if (currentSort.column !== col) return '';
             return currentSort.asc ? ' <span class="sort-icon">▲</span>' : ' <span class="sort-icon">▼</span>';
+        };
+
+        const getFilterInput = (col) => {
+            const val = activeFilters[col] || '';
+            return `<input type="text" class="header-filter-input" data-col="${col}" value="${escapeHTML(val)}" placeholder="Filter..">`;
         };
 
         if (type === 'stock') {
@@ -559,6 +748,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 <th data-sort="dividend_yield">Div. Yield${getIcon('dividend_yield')}</th>
                 <th data-sort="rank_score">Score${getIcon('rank_score')}</th>
                 <th>Links</th>
+            `;
+
+            tableFilterRow.innerHTML = `
+                <th>${getFilterInput('final_rank')}</th>
+                <th>${getFilterInput('ticker')}</th>
+                <th>${getFilterInput('price')}</th>
+                <th>${getFilterInput('peg')}</th>
+                <th>${getFilterInput('p_fcf')}</th>
+                <th>${getFilterInput('pe')}</th>
+                <th>${getFilterInput('p_a')}</th>
+                <th>${getFilterInput('eps')}</th>
+                <th>${getFilterInput('debt_ebit')}</th>
+                <th>${getFilterInput('roic')}</th>
+                <th>${getFilterInput('roe')}</th>
+                <th>${getFilterInput('net_margin')}</th>
+                <th>${getFilterInput('dividend_yield')}</th>
+                <th>${getFilterInput('rank_score')}</th>
+                <th></th>
             `;
         } else if (type === 'reit') {
             if (currentTab === 'br-fiis') {
@@ -581,6 +788,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     <th data-sort="rank_score">Score${getIcon('rank_score')}</th>
                     <th>Links</th>
                 `;
+
+                tableFilterRow.innerHTML = `
+                    <th>${getFilterInput('final_rank')}</th>
+                    <th>${getFilterInput('ticker')}</th>
+                    <th>${getFilterInput('price')}</th>
+                    <th>${getFilterInput('ceiling_price')}</th>
+                    <th>${getFilterInput('dividend_yield')}</th>
+                    <th>${getFilterInput('p_vpa')}</th>
+                    <th>${getFilterInput('dy_cagr')}</th>
+                    <th>${getFilterInput('min_52w')}</th>
+                    <th>${getFilterInput('max_52w')}</th>
+                    <th>${getFilterInput('val_12m')}</th>
+                    <th>${getFilterInput('vp_cota')}</th>
+                    <th>${getFilterInput('caixa')}</th>
+                    <th>${getFilterInput('val_cagr')}</th>
+                    <th>${getFilterInput('cotistas')}</th>
+                    <th>${getFilterInput('sharpe_ratio')}</th>
+                    <th>${getFilterInput('rank_score')}</th>
+                    <th></th>
+                `;
             } else {
                 tableHeaderRow.innerHTML = `
                     <th data-sort="ticker">Ticker / Name${getIcon('ticker')}</th>
@@ -590,17 +817,38 @@ document.addEventListener('DOMContentLoaded', () => {
                     <th data-sort="p_a">P/A${getIcon('p_a')}</th>
                     <th>Links</th>
                 `;
+
+                tableFilterRow.innerHTML = `
+                    <th>${getFilterInput('ticker')}</th>
+                    <th>${getFilterInput('price')}</th>
+                    <th>${getFilterInput('dividend_yield')}</th>
+                    <th>${getFilterInput('p_vpa')}</th>
+                    <th>${getFilterInput('p_a')}</th>
+                    <th></th>
+                `;
             }
         } else if (type === 'news') {
             tableHeaderRow.innerHTML = `
-                <th data-sort="published_at">Date${getIcon('published_at')}</th>
-                <th data-sort="published_at">Time${getIcon('published_at')}</th>
-                <th data-sort="title">Asset${getIcon('title')}</th>
-                <th data-sort="title">Headline${getIcon('title')}</th>
-                <th data-sort="title">Type${getIcon('title')}</th>
+                <th data-sort="parsedDate">Date${getIcon('parsedDate')}</th>
+                <th data-sort="parsedTime">Time${getIcon('parsedTime')}</th>
+                <th data-sort="parsedAsset">Asset${getIcon('parsedAsset')}</th>
+                <th data-sort="parsedHeadline">Headline${getIcon('parsedHeadline')}</th>
+                <th data-sort="parsedType">Type${getIcon('parsedType')}</th>
             `;
+
+            tableFilterRow.innerHTML = `
+                <th>${getFilterInput('parsedDate')}</th>
+                <th>${getFilterInput('parsedTime')}</th>
+                <th>${getFilterInput('parsedAsset')}</th>
+                <th>${getFilterInput('parsedHeadline')}</th>
+                <th>${getFilterInput('parsedType')}</th>
+            `;
+        } else {
+            tableHeaderRow.innerHTML = '';
+            tableFilterRow.innerHTML = '';
         }
         attachSortListeners();
+        attachFilterListeners();
     }
 
     function attachSortListeners() {
@@ -617,7 +865,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 sortData();
                 renderTableHeaders(TAB_CONFIG[currentTab].type);
-                renderTableBody(currentData, TAB_CONFIG[currentTab].type);
+                renderTableBody(getFilteredData(), TAB_CONFIG[currentTab].type);
             });
         });
     }
@@ -646,14 +894,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // XSS protection for API data injected into DOM (R5)
-        const escapeHTML = (str) => {
-            if (str == null) return '';
-            const div = document.createElement('div');
-            div.textContent = String(str);
-            return div.innerHTML;
-        };
-
         const formatCurrency = (val) => val != null ? val.toLocaleString('en-US', { style: 'currency', currency: 'USD' }) : '-';
         const formatNumber = (val, dec=2) => val != null ? val.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }) : '-';
         const formatPercent = (val) => val != null ? `${val.toFixed(2)}%` : '-';
@@ -666,96 +906,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const rows = data.map(item => {
             if (type === 'news') {
-                let datePart = '', timePart = '';
-                const pub = item.published_at || '';
-                if (pub.includes('T')) {
-                    datePart = pub.split('T')[0];
-                    timePart = pub.split('T')[1].split('.')[0];
-                } else if (pub.includes(' ')) {
-                    datePart = pub.split(' ')[0];
-                    timePart = pub.split(' ')[1].split('.')[0];
-                }
-                
-                let formattedDate = datePart;
-                if (datePart) {
-                    const parts = datePart.split('-');
-                    if (parts.length === 3) formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
-                }
-
-                let asset = '-';
-                let headlineStr = item.title || "";
-                
-                // Advanced parsing for B3 News titles
-                // Regex matches (TICKER) capturing TICKER cleanly
-                const tickerMatch = headlineStr.match(/\(([A-Z0-9]+)\)/);
-                if (tickerMatch) {
-                    asset = tickerMatch[1]; // WHGR
-                    // Remove the ticker part from the headline
-                    headlineStr = headlineStr.replace(tickerMatch[0], '').replace(/\s+/g, ' ').trim();
-                }
-
-                // Split by " - " to separate Company Name and News Type/Date
-                const dashParts = headlineStr.split(' - ');
-                let companyName = dashParts[0].trim();
-                let actualNewsType = '-';
-                
-                if (dashParts.length > 1 && dashParts[1].trim() !== '') {
-                    actualNewsType = dashParts[1].trim();
-                }
-
-                // Smart fallback for unstructured B3 streams if type wasn't found
-                if (actualNewsType === '-') {
-                    const knownTypes = [
-                        'SUMARIO DE DECISOES', 'SUMARIO AGE', 'SUMARIO AGOE', 'SUMARIO AGO',
-                        'PROPOSTA DA ADMINISTRACAO', 'PROPOSTA AGE', 'PROPOSTA AGOE', 'PROPOSTA AGO',
-                        'EDITAL DE CONVOCACAO', 'EDITAL AGE', 'EDITAL AGOE', 'EDITAL AGO',
-                        'ATA DE REUNIAO', 'ATA AGE', 'ATA AGOE', 'ATA AGO', 'ATA RCA', 'ATA',
-                        'DEMONSTRACOES FINANCEIRAS', 'DEMONST. FINANC.', 'DEMONSTRACAO FINANCEIRA',
-                        'AVISO AOS ACIONISTAS', 'AVISO AOS DEBENTURISTAS', 'AVISO AOS COTISTAS',
-                        'FATO RELEVANTE', 'COMUNICADO AO MERCADO', 
-                        'INFORME MENSAL', 'INFORME TRIMESTRAL', 'RELATORIO GERENCIAL', 
-                        'PROVENTOS'
-                    ];
-                    
-                    // Normalize all spaces, newlines, and tabs into a single space for robust matching
-                    const normalizedHeadline = companyName.replace(/\s+/g, ' ');
-                    const upperHeadline = normalizedHeadline.toUpperCase();
-                    
-                    for (const kt of knownTypes) {
-                        if (upperHeadline.includes(kt)) {
-                            actualNewsType = kt;
-                            // Replace keyword in companyName even if it spans across newlines
-                            const regexStr = kt.split(' ').join('\\s+');
-                            companyName = companyName.replace(new RegExp(regexStr, 'ig'), '').trim();
-                            // Clean up dangling dashes, spaces or separators at the end
-                            companyName = companyName.replace(/^[-:\s]+|[-:\s]+$/g, '').trim();
-                            // Failsafe in case the entire headline was just the Type keyword
-                            if (!companyName) companyName = actualNewsType;
-                            break;
-                        }
-                    }
-                }
-
-                // Clean trailing dates from news type (like 03/2026 or 12/03/2026)
-                actualNewsType = actualNewsType.replace(/\s*-?\s*\d{2}\/\d{2}\/\d{4}(\s+\d{2}:\d{2})?\s*$/, '').trim();
-                actualNewsType = actualNewsType.replace(/\s*-?\s*\d{2}\/\d{4}\s*$/, '').trim();
-                
-                // Fallback filtering check
-                let filterStr = (actualNewsType !== '-') ? actualNewsType : companyName;
-                if (currentNewsType && currentNewsType !== '') {
-                    if (!filterStr.toLowerCase().includes(currentNewsType)) {
-                        return ''; // Skip this row
-                    }
-                }
-                
-                let finalHeadline = companyName;
-
                 return `<tr>
-                    <td style="white-space:nowrap">${formattedDate}</td>
-                    <td style="white-space:nowrap">${timePart}</td>
-                    <td style="color:var(--text-secondary)">${asset}</td>
-                    <td><a href="${item.link}" target="_blank" style="color:var(--text-primary); text-decoration:underline;">${finalHeadline}</a></td>
-                    <td style="white-space:nowrap; color:var(--accent)">${actualNewsType}</td>
+                    <td style="white-space:nowrap">${item.parsedDate || '-'}</td>
+                    <td style="white-space:nowrap">${item.parsedTime || '-'}</td>
+                    <td style="color:var(--text-secondary)">${item.parsedAsset || '-'}</td>
+                    <td><a href="${item.link}" target="_blank" style="color:var(--text-primary); text-decoration:underline;">${item.parsedHeadline || '-'}</a></td>
+                    <td style="white-space:nowrap; color:var(--accent)">${item.parsedType || '-'}</td>
                 </tr>`;
             }
 

@@ -13,7 +13,8 @@
 <body>
     <div class="app-container">
         <!-- Sidebar / Navigation -->
-        <aside class="sidebar">
+        <aside class="sidebar" id="sidebar">
+            <button id="sidebar-toggle" class="sidebar-toggle" title="Toggle sidebar">☰</button>
             <div class="logo">
                 <svg width="34" height="34" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0; filter: drop-shadow(0 0 2px var(--accent));">
                     <!-- Atom Orbits -->
@@ -29,29 +30,29 @@
             <nav class="nav-menu">
                 <div class="nav-section-title">EQUITIES</div>
                 <button class="nav-item active" data-tab="br-stocks">
-                    <span class="icon">></span> BR Stocks
+                    <span class="icon">📊</span> BR Stocks
                 </button>
                 <button class="nav-item" data-tab="us-stocks">
-                    <span class="icon">></span> US Stocks
+                    <span class="icon">📈</span> US Stocks
                 </button>
 
                 <div class="nav-section-title mt-4">REAL ESTATE</div>
                 <button class="nav-item" data-tab="br-fiis">
-                    <span class="icon">></span> BR FIIs
+                    <span class="icon">🏢</span> BR FIIs
                 </button>
                 <button class="nav-item" data-tab="us-reits">
-                    <span class="icon">></span> US REITs
+                    <span class="icon">🏠</span> US REITs
                 </button>
                 
                 <div class="nav-section-title mt-4">BRZ MARKETS INFO</div>
                 <button class="nav-item" data-tab="b3-indices">
-                    <span class="icon">></span> B3 Indices
+                    <span class="icon">⚙️</span> B3 Indices
                 </button>
                 <button class="nav-item" data-tab="market-news">
-                    <span class="icon">></span> Latest News
+                    <span class="icon">📰</span> Latest News
                 </button>
                 <button class="nav-item" data-tab="about-app">
-                    <span class="icon">></span> About App
+                    <span class="icon">ℹ️</span> About App
                 </button>
             </nav>
 
@@ -111,6 +112,9 @@
                         <thead>
                             <tr id="table-header-row">
                                 <!-- Headers injected via JS based on selected tab -->
+                            </tr>
+                            <tr id="table-filter-row">
+                                <!-- Filter inputs injected via JS based on selected tab -->
                             </tr>
                         </thead>
                         <tbody id="table-body">
@@ -201,6 +205,6 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-    <script src="app.js?v=be836c76"></script>
+    <script src="app.js?v=c8ccb2e2"></script>
 </body>
 </html>
