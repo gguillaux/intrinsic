@@ -62,6 +62,7 @@ def _is_valid_data(data: Dict[str, Any]) -> bool:
 def _init_empty_metrics(ticker: str) -> Dict[str, Any]:
     return {
         "ticker": ticker, "name": ticker, "price": None,
+        "market_cap": None, "p_s": None,
         "p_fcf": None, "pe": None, "p_a": None, "eps": None, "debt_ebit": None,
         "roic": None, "roe": None, "net_margin": None, "peg": None,
         "dividend_yield": None, "p_vpa": None,
@@ -210,8 +211,14 @@ def fetch_stock_metrics(ticker: str, is_us_reit: bool = False) -> Dict[str, Any]
 
         data["name"] = info.get("shortName", ticker)
 
-        # Compute P/A (Price-to-Assets = Market Cap / Total Assets)
+        # Persist Market Cap and P/S for valuation donut charts
         market_cap = info.get('marketCap')
+        data["market_cap"] = market_cap
+        ps_ratio = info.get('priceToSalesTrailing12Months')
+        if ps_ratio is not None:
+            data["p_s"] = round(float(ps_ratio), 2)
+
+        # Compute P/A (Price-to-Assets = Market Cap / Total Assets)
         try:
             bs = yf_ticker.balance_sheet
             if hasattr(bs, 'index') and 'Total Assets' in bs.index and len(bs.columns) > 0:

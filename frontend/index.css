@@ -705,3 +705,178 @@ body.theme-light .rank-5:hover { background-color: rgba(69, 165, 174, 0.2); }
     border-color: var(--accent);
     background: var(--bg-surface);
 }
+
+/* ============================================
+   Valuation Donut Grid View
+   ============================================ */
+
+.valuation-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.2rem;
+    padding: 1.5rem;
+    overflow-y: auto;
+    max-height: 100%;
+}
+
+.valuation-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    padding: 1.2rem;
+    position: relative;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.valuation-card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 15px rgba(69, 165, 174, 0.15);
+    transform: translateY(-2px);
+}
+
+.valuation-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.valuation-card-ticker {
+    font-family: 'Fira Code', monospace;
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--text-primary);
+    text-transform: uppercase;
+}
+
+.valuation-card-name {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    margin-top: 0.15rem;
+    font-family: 'Fira Code', monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+.valuation-card-rank {
+    font-family: 'Fira Code', monospace;
+    font-weight: 700;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    padding: 0.15rem 0.5rem;
+    border: 1px solid var(--border);
+    white-space: nowrap;
+}
+
+.valuation-card-body {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+}
+
+.valuation-donut-container {
+    position: relative;
+    width: 130px;
+    height: 130px;
+    flex-shrink: 0;
+}
+
+.valuation-donut-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Fira Code', monospace;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    text-align: center;
+    pointer-events: none;
+}
+
+.valuation-metrics {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    flex: 1;
+}
+
+.valuation-metric-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'Fira Code', monospace;
+    font-size: 0.82rem;
+}
+
+.valuation-metric-label {
+    color: var(--text-secondary);
+}
+
+.valuation-metric-value {
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.valuation-metric-value.deep-value {
+    color: var(--success);
+}
+
+.valuation-metric-value.overvalued {
+    color: var(--danger);
+}
+
+.valuation-card-legend {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    font-size: 0.7rem;
+    font-family: 'Fira Code', monospace;
+    color: var(--text-secondary);
+    padding-top: 0.4rem;
+    border-top: 1px dashed var(--border);
+}
+
+.valuation-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.valuation-legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+/* Deep value card highlight */
+.valuation-card.deep-value-card {
+    border-left: 3px solid var(--success);
+}
+
+.valuation-card.deep-value-card .valuation-card-ticker {
+    color: var(--success);
+}
+
+/* View toggle active state */
+#view-toggle-btn.active {
+    background: var(--accent);
+    color: var(--c-black);
+    border-color: var(--accent);
+}
+
+/* No data state */
+.valuation-no-data {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 130px;
+    font-family: 'Fira Code', monospace;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    border: 1px dashed var(--border);
+}

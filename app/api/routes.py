@@ -26,6 +26,8 @@ class ValuationMetricSchema(BaseModel):
     ticker: str
     name: Optional[str] = None
     price: Optional[float] = None
+    market_cap: Optional[float] = None
+    p_s: Optional[float] = None
     p_fcf: Optional[float] = None
     pe: Optional[float] = None
     p_a: Optional[float] = None

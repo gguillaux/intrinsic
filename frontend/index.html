@@ -83,6 +83,7 @@
                         <option value="Assembleia">Assembleia</option>
                     </select>
                     <button class="btn btn-primary" id="export-btn" style="display: none; margin-right: 0.5rem; background: var(--success); color: var(--bg-surface);">EXPORT EXCEL</button>
+                    <button class="btn" id="view-toggle-btn" style="display: none;" title="Toggle between table and valuation grid views">🍩 GRID</button>
                     <div class="search-box">
                         <input type="text" id="search-input" placeholder="Search ticker or name...">
                     </div>
@@ -107,7 +108,7 @@
 
             <!-- Data Table -->
             <section class="data-section" id="data-section">
-                <div class="table-container">
+                <div class="table-container" id="table-view">
                     <table id="valuation-table">
                         <thead>
                             <tr id="table-header-row">
@@ -121,6 +122,11 @@
                             <!-- Rows injected via JS -->
                         </tbody>
                     </table>
+                </div>
+
+                <!-- Valuation Donut Grid View -->
+                <div id="valuation-grid" class="valuation-grid" style="display: none;">
+                    <!-- Cards injected via JS -->
                 </div>
                 
                 <!-- Loading State -->
@@ -205,6 +211,7 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-    <script src="app.js?v=c8ccb2e2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="app.js?v=2883414c"></script>
 </body>
 </html>

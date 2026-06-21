@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const tableFilterRow = document.getElementById('table-filter-row');
     const tableBody = document.getElementById('table-body');
     const loader = document.getElementById('loader');
-    const tableContainer = document.querySelector('.table-container');
+    const tableContainer = document.getElementById('table-view');
     const refreshBtn = document.getElementById('refresh-btn');
     const exportBtn = document.getElementById('export-btn');
     const searchInput = document.getElementById('search-input');
@@ -22,6 +22,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const newsDatePicker = document.getElementById('news-date-picker');
     const newsTypeFilter = document.getElementById('news-type-filter');
     const themeToggleBtn = document.getElementById('theme-toggle-btn');
+    const viewToggleBtn = document.getElementById('view-toggle-btn');
+    const valuationGrid = document.getElementById('valuation-grid');
     
     const manualAssetsSection = document.getElementById('manual-assets-section');
     const manualAssetsCheckbox = document.getElementById('manual-assets-checkbox');
@@ -40,6 +42,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentSort = { column: null, asc: true };
     let currentNewsType = '';
     let activeFilters = {};
+    let currentViewMode = 'table'; // 'table' or 'grid'
+    let donutChartInstances = []; // Track Chart.js instances for cleanup
 
     const TAB_CONFIG = {
         'br-stocks': { title: 'BR Stocks', subtitle: 'Focus on Low P/FCF, EPS, low Debt, P/E, and PEG < 1', type: 'stock' },
@@ -253,6 +257,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 exportDataToCSV(currentData, TAB_CONFIG[currentTab].type);
             });
         }
+
+        if (viewToggleBtn) {
+            viewToggleBtn.addEventListener('click', () => {
+                currentViewMode = currentViewMode === 'table' ? 'grid' : 'table';
+                applyViewMode();
+            });
+        }
     }
 
     function exportDataToCSV(data, type) {
@@ -458,11 +469,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (tabId === 'br-stocks' || tabId === 'us-stocks') {
             if (manualAssetsSection) manualAssetsSection.style.display = 'block';
+            if (viewToggleBtn) viewToggleBtn.style.display = 'inline-block';
         } else {
             if (manualAssetsSection) manualAssetsSection.style.display = 'none';
+            if (viewToggleBtn) viewToggleBtn.style.display = 'none';
+            currentViewMode = 'table'; // Reset to table for non-stock tabs
         }
 
         tableContainer.style.display = 'none';
+        if (valuationGrid) valuationGrid.style.display = 'none';
         loader.style.display = 'flex';
         tableBody.innerHTML = '';
         searchInput.value = '';
@@ -587,13 +602,223 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (currentSort.column) sortData();
             renderTableBody(getFilteredData(), config.type);
-            tableContainer.style.display = 'block';
+            applyViewMode();
         } catch (error) {
             tableBody.innerHTML = `<tr><td colspan="10" class="bad-metric" style="text-align: center;">Error fetching data: ${error.message}</td></tr>`;
             tableContainer.style.display = 'block';
         } finally {
             loader.style.display = 'none';
         }
+    }
+
+    function applyViewMode() {
+        const isStock = TAB_CONFIG[currentTab]?.type === 'stock';
+        if (!isStock || currentViewMode === 'table') {
+            tableContainer.style.display = 'block';
+            if (valuationGrid) valuationGrid.style.display = 'none';
+            if (viewToggleBtn) {
+                viewToggleBtn.textContent = '\uD83C\uDF69 GRID';
+                viewToggleBtn.classList.remove('active');
+            }
+        } else {
+            tableContainer.style.display = 'none';
+            if (valuationGrid) {
+                valuationGrid.style.display = 'grid';
+                renderValuationGrid(getFilteredData());
+            }
+            if (viewToggleBtn) {
+                viewToggleBtn.textContent = '\uD83D\uDCCA TABLE';
+                viewToggleBtn.classList.add('active');
+            }
+        }
+    }
+
+    function renderValuationGrid(data) {
+        if (!valuationGrid) return;
+
+        // Destroy previous Chart.js instances
+        donutChartInstances.forEach(c => c.destroy());
+        donutChartInstances = [];
+
+        // Sort by deep value: lowest positive P/E first (more earnings per market cap)
+        const sorted = [...data].sort((a, b) => {
+            const peA = (a.pe != null && a.pe > 0) ? a.pe : Infinity;
+            const peB = (b.pe != null && b.pe > 0) ? b.pe : Infinity;
+            if (peA !== peB) return peA - peB;
+            const psA = (a.p_s != null && a.p_s > 0) ? a.p_s : Infinity;
+            const psB = (b.p_s != null && b.p_s > 0) ? b.p_s : Infinity;
+            return psA - psB;
+        });
+
+        const formatMktCap = (val) => {
+            if (val == null) return '-';
+            if (val >= 1e12) return `${(val / 1e12).toFixed(2)} T`;
+            if (val >= 1e9) return `${(val / 1e9).toFixed(2)} B`;
+            if (val >= 1e6) return `${(val / 1e6).toFixed(0)} M`;
+            return val.toLocaleString();
+        };
+
+        valuationGrid.innerHTML = sorted.map((item, idx) => {
+            const hasData = item.market_cap && ((item.pe && item.pe > 0) || (item.p_s && item.p_s > 0));
+            const isDeepValue = item.pe != null && item.pe > 0 && item.pe <= 10;
+            const deepClass = isDeepValue ? 'deep-value-card' : '';
+            const peValClass = item.pe != null ? (item.pe > 0 && item.pe <= 10 ? 'deep-value' : (item.pe > 25 || item.pe < 0 ? 'overvalued' : '')) : '';
+            const psValClass = item.p_s != null ? (item.p_s > 0 && item.p_s <= 1 ? 'deep-value' : (item.p_s > 5 ? 'overvalued' : '')) : '';
+
+            const peDisplay = item.pe != null ? `${item.pe.toFixed(2)}x` : '-';
+            const psDisplay = item.p_s != null ? `${item.p_s.toFixed(2)}x` : '-';
+            const name = item.name ? escapeHTML(item.name) : 'Unknown';
+
+            let rankBadge = '';
+            if (item.final_rank) {
+                let icon = '';
+                if (item.final_rank === 1) icon = '\uD83C\uDFC6';
+                else if (item.final_rank === 2) icon = '\uD83C\uDFC5';
+                else if (item.final_rank === 3) icon = '\uD83E\uDD49';
+                rankBadge = `<span class="valuation-card-rank">#${item.final_rank} ${icon}</span>`;
+            }
+
+            return `
+                <div class="valuation-card ${deepClass}" data-idx="${idx}">
+                    <div class="valuation-card-header">
+                        <div>
+                            <div class="valuation-card-ticker">${item.ticker}</div>
+                            <div class="valuation-card-name">${name}</div>
+                        </div>
+                        ${rankBadge}
+                    </div>
+                    <div class="valuation-card-body">
+                        ${hasData ? `
+                            <div class="valuation-donut-container">
+                                <canvas id="donut-${idx}" width="130" height="130"></canvas>
+                                <div class="valuation-donut-center">${formatMktCap(item.market_cap)}</div>
+                            </div>
+                        ` : `
+                            <div class="valuation-no-data">No valuation data</div>
+                        `}
+                        <div class="valuation-metrics">
+                            <div class="valuation-metric-row">
+                                <span class="valuation-metric-label">P/E ratio</span>
+                                <span class="valuation-metric-value ${peValClass}">${peDisplay}</span>
+                            </div>
+                            <div class="valuation-metric-row">
+                                <span class="valuation-metric-label">P/S ratio</span>
+                                <span class="valuation-metric-value ${psValClass}">${psDisplay}</span>
+                            </div>
+                            <div class="valuation-metric-row">
+                                <span class="valuation-metric-label">P/FCF</span>
+                                <span class="valuation-metric-value ${item.p_fcf != null ? (item.p_fcf > 0 && item.p_fcf <= 15 ? 'deep-value' : (item.p_fcf > 30 || item.p_fcf < 0 ? 'overvalued' : '')) : ''}">${item.p_fcf != null ? item.p_fcf.toFixed(2) + 'x' : '-'}</span>
+                            </div>
+                            <div class="valuation-metric-row">
+                                <span class="valuation-metric-label">Price</span>
+                                <span class="valuation-metric-value">${item.price != null ? '$' + item.price.toFixed(2) : '-'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="valuation-card-legend">
+                        <span class="valuation-legend-item"><span class="valuation-legend-dot" style="background:#3a3a3a"></span> Market Cap</span>
+                        <span class="valuation-legend-item"><span class="valuation-legend-dot" style="background:#2ec4b6"></span> Net Income</span>
+                        <span class="valuation-legend-item"><span class="valuation-legend-dot" style="background:#5b8bf5"></span> Revenue</span>
+                        <span class="valuation-legend-item"><span class="valuation-legend-dot" style="background:#c084fc"></span> FCF</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Create Chart.js donut charts — three concentric rings
+        // Outer ring: Revenue vs Market Cap (P/S ratio)
+        // Middle ring: Net Income vs Market Cap (P/E ratio)
+        // Inner ring: Free Cash Flow vs Market Cap (P/FCF ratio)
+        sorted.forEach((item, idx) => {
+            const canvas = document.getElementById(`donut-${idx}`);
+            if (!canvas) return;
+
+            const marketCap = item.market_cap;
+            if (!marketCap) return;
+
+            const netIncome = (item.pe && item.pe > 0) ? marketCap / item.pe : 0;
+            const revenue = (item.p_s && item.p_s > 0) ? marketCap / item.p_s : 0;
+            const fcf = (item.p_fcf && item.p_fcf > 0) ? marketCap / item.p_fcf : 0;
+
+            // Each ring shows its value as a proportion of market cap
+            const netIncomeRatio = netIncome > 0 ? Math.min(netIncome / marketCap, 1) : 0;
+            const revenueRatio = revenue > 0 ? Math.min(revenue / marketCap, 1) : 0;
+            const fcfRatio = fcf > 0 ? Math.min(fcf / marketCap, 1) : 0;
+
+            const chart = new Chart(canvas.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Value', 'Market Cap'],
+                    datasets: [
+                        {
+                            // Outer ring — Revenue (P/S)
+                            label: 'Revenue',
+                            data: [revenueRatio, 1 - revenueRatio],
+                            backgroundColor: ['#5b8bf5', '#3a3a3a'],
+                            borderColor: ['#4a7ae0', '#2a2a2a'],
+                            borderWidth: 1,
+                            hoverBorderWidth: 2,
+                            hoverBorderColor: ['#6fa0ff', '#555'],
+                            weight: 1,
+                        },
+                        {
+                            // Middle ring — Net Income (P/E)
+                            label: 'Net Income',
+                            data: [netIncomeRatio, 1 - netIncomeRatio],
+                            backgroundColor: ['#2ec4b6', '#3a3a3a'],
+                            borderColor: ['#24a89a', '#2a2a2a'],
+                            borderWidth: 1,
+                            hoverBorderWidth: 2,
+                            hoverBorderColor: ['#3ed8c8', '#555'],
+                            weight: 1,
+                        },
+                        {
+                            // Inner ring — Free Cash Flow (P/FCF)
+                            label: 'FCF',
+                            data: [fcfRatio, 1 - fcfRatio],
+                            backgroundColor: ['#c084fc', '#3a3a3a'],
+                            borderColor: ['#a855f7', '#2a2a2a'],
+                            borderWidth: 1,
+                            hoverBorderWidth: 2,
+                            hoverBorderColor: ['#d8b4fe', '#555'],
+                            weight: 1,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: false,
+                    cutout: '40%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#1a1a1a',
+                            titleFont: { family: 'Fira Code', size: 11 },
+                            bodyFont: { family: 'Fira Code', size: 11 },
+                            borderColor: '#333',
+                            borderWidth: 1,
+                            callbacks: {
+                                title: function(tooltipItems) {
+                                    const dsIdx = tooltipItems[0].datasetIndex;
+                                    const titles = ['P/S (Revenue)', 'P/E (Net Income)', 'P/FCF (Free Cash Flow)'];
+                                    return titles[dsIdx] || '';
+                                },
+                                label: function(ctx) {
+                                    if (ctx.dataIndex === 1) return ' Market Cap (remaining)';
+                                    const pct = (ctx.raw * 100).toFixed(1);
+                                    const labels = ['Revenue', 'Net Income', 'FCF'];
+                                    return ` ${labels[ctx.datasetIndex]}: ${pct}% of Mkt Cap`;
+                                }
+                            }
+                        }
+                    },
+                    animation: {
+                        animateRotate: true,
+                        duration: 800
+                    }
+                }
+            });
+            donutChartInstances.push(chart);
+        });
     }
 
     function getExternalLinksHTML(ticker) {
