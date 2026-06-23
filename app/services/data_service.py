@@ -63,7 +63,8 @@ def _init_empty_metrics(ticker: str) -> Dict[str, Any]:
     return {
         "ticker": ticker, "name": ticker, "price": None,
         "market_cap": None, "p_s": None,
-        "p_fcf": None, "pe": None, "p_a": None, "eps": None, "debt_ebit": None,
+        "p_fcf": None, "pe": None, "p_a": None, "p_nwc": None,
+        "eps": None, "debt_ebit": None,
         "roic": None, "roe": None, "net_margin": None, "peg": None,
         "dividend_yield": None, "p_vpa": None,
         "min_52w": None, "max_52w": None, "val_12m": None, "vp_cota": None,
@@ -219,14 +220,29 @@ def fetch_stock_metrics(ticker: str, is_us_reit: bool = False) -> Dict[str, Any]
             data["p_s"] = round(float(ps_ratio), 2)
 
         # Compute P/A (Price-to-Assets = Market Cap / Total Assets)
+        # Compute P/NWC (Price-to-Net Working Capital = Market Cap / (Current Assets - Current Liabilities))
         try:
             bs = yf_ticker.balance_sheet
-            if hasattr(bs, 'index') and 'Total Assets' in bs.index and len(bs.columns) > 0:
-                total_assets = bs.loc['Total Assets'].iloc[0]
-                if market_cap and total_assets and total_assets > 0:
-                    data["p_a"] = round(float(market_cap / total_assets), 2)
+            if hasattr(bs, 'index') and len(bs.columns) > 0:
+                if 'Total Assets' in bs.index:
+                    total_assets = bs.loc['Total Assets'].iloc[0]
+                    if market_cap and total_assets and total_assets > 0:
+                        data["p_a"] = round(float(market_cap / total_assets), 2)
+
+                # Net Working Capital = Current Assets - Current Liabilities
+                current_assets = None
+                current_liabilities = None
+                if 'Current Assets' in bs.index:
+                    current_assets = bs.loc['Current Assets'].iloc[0]
+                if 'Current Liabilities' in bs.index:
+                    current_liabilities = bs.loc['Current Liabilities'].iloc[0]
+
+                if current_assets is not None and current_liabilities is not None:
+                    nwc = float(current_assets) - float(current_liabilities)
+                    if market_cap and nwc > 0:
+                        data["p_nwc"] = round(float(market_cap / nwc), 2)
         except Exception as e:
-            logger.warning("P/A calculation failed for %s: %s", ticker, e)
+            logger.warning("P/A or P/NWC calculation failed for %s: %s", ticker, e)
 
         is_br = ticker.endswith(".SA")
         if is_br:

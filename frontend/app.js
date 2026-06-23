@@ -710,6 +710,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span class="valuation-metric-value ${item.p_fcf != null ? (item.p_fcf > 0 && item.p_fcf <= 15 ? 'deep-value' : (item.p_fcf > 30 || item.p_fcf < 0 ? 'overvalued' : '')) : ''}">${item.p_fcf != null ? item.p_fcf.toFixed(2) + 'x' : '-'}</span>
                             </div>
                             <div class="valuation-metric-row">
+                                <span class="valuation-metric-label">P/NWC</span>
+                                <span class="valuation-metric-value ${item.p_nwc != null ? (item.p_nwc > 0 && item.p_nwc <= 1.5 ? 'deep-value' : (item.p_nwc > 10 || item.p_nwc < 0 ? 'overvalued' : '')) : ''}">${item.p_nwc != null ? item.p_nwc.toFixed(2) + 'x' : '-'}</span>
+                            </div>
+                            <div class="valuation-metric-row">
                                 <span class="valuation-metric-label">Price</span>
                                 <span class="valuation-metric-value">${item.price != null ? '$' + item.price.toFixed(2) : '-'}</span>
                             </div>
@@ -720,15 +724,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="valuation-legend-item"><span class="valuation-legend-dot" style="background:#2ec4b6"></span> Net Income</span>
                         <span class="valuation-legend-item"><span class="valuation-legend-dot" style="background:#5b8bf5"></span> Revenue</span>
                         <span class="valuation-legend-item"><span class="valuation-legend-dot" style="background:#c084fc"></span> FCF</span>
+                        <span class="valuation-legend-item"><span class="valuation-legend-dot" style="background:#f59e0b"></span> NWC</span>
                     </div>
                 </div>
             `;
         }).join('');
 
-        // Create Chart.js donut charts — three concentric rings
+        // Create Chart.js donut charts — four concentric rings
         // Outer ring: Revenue vs Market Cap (P/S ratio)
-        // Middle ring: Net Income vs Market Cap (P/E ratio)
-        // Inner ring: Free Cash Flow vs Market Cap (P/FCF ratio)
+        // 2nd ring: Net Income vs Market Cap (P/E ratio)
+        // 3rd ring: Free Cash Flow vs Market Cap (P/FCF ratio)
+        // Inner ring: Net Working Capital vs Market Cap (P/NWC ratio)
         sorted.forEach((item, idx) => {
             const canvas = document.getElementById(`donut-${idx}`);
             if (!canvas) return;
@@ -739,11 +745,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const netIncome = (item.pe && item.pe > 0) ? marketCap / item.pe : 0;
             const revenue = (item.p_s && item.p_s > 0) ? marketCap / item.p_s : 0;
             const fcf = (item.p_fcf && item.p_fcf > 0) ? marketCap / item.p_fcf : 0;
+            const nwc = (item.p_nwc && item.p_nwc > 0) ? marketCap / item.p_nwc : 0;
 
             // Each ring shows its value as a proportion of market cap
             const netIncomeRatio = netIncome > 0 ? Math.min(netIncome / marketCap, 1) : 0;
             const revenueRatio = revenue > 0 ? Math.min(revenue / marketCap, 1) : 0;
             const fcfRatio = fcf > 0 ? Math.min(fcf / marketCap, 1) : 0;
+            const nwcRatio = nwc > 0 ? Math.min(nwc / marketCap, 1) : 0;
 
             const chart = new Chart(canvas.getContext('2d'), {
                 type: 'doughnut',
@@ -762,7 +770,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             weight: 1,
                         },
                         {
-                            // Middle ring — Net Income (P/E)
+                            // 2nd ring — Net Income (P/E)
                             label: 'Net Income',
                             data: [netIncomeRatio, 1 - netIncomeRatio],
                             backgroundColor: ['#2ec4b6', '#3a3a3a'],
@@ -773,7 +781,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             weight: 1,
                         },
                         {
-                            // Inner ring — Free Cash Flow (P/FCF)
+                            // 3rd ring — Free Cash Flow (P/FCF)
                             label: 'FCF',
                             data: [fcfRatio, 1 - fcfRatio],
                             backgroundColor: ['#c084fc', '#3a3a3a'],
@@ -782,12 +790,23 @@ document.addEventListener('DOMContentLoaded', () => {
                             hoverBorderWidth: 2,
                             hoverBorderColor: ['#d8b4fe', '#555'],
                             weight: 1,
+                        },
+                        {
+                            // Inner ring — Net Working Capital (P/NWC)
+                            label: 'NWC',
+                            data: [nwcRatio, 1 - nwcRatio],
+                            backgroundColor: ['#f59e0b', '#3a3a3a'],
+                            borderColor: ['#d97706', '#2a2a2a'],
+                            borderWidth: 1,
+                            hoverBorderWidth: 2,
+                            hoverBorderColor: ['#fbbf24', '#555'],
+                            weight: 1,
                         }
                     ]
                 },
                 options: {
                     responsive: false,
-                    cutout: '40%',
+                    cutout: '30%',
                     plugins: {
                         legend: { display: false },
                         tooltip: {
@@ -799,13 +818,13 @@ document.addEventListener('DOMContentLoaded', () => {
                             callbacks: {
                                 title: function(tooltipItems) {
                                     const dsIdx = tooltipItems[0].datasetIndex;
-                                    const titles = ['P/S (Revenue)', 'P/E (Net Income)', 'P/FCF (Free Cash Flow)'];
+                                    const titles = ['P/S (Revenue)', 'P/E (Net Income)', 'P/FCF (Free Cash Flow)', 'P/NWC (Net Working Capital)'];
                                     return titles[dsIdx] || '';
                                 },
                                 label: function(ctx) {
                                     if (ctx.dataIndex === 1) return ' Market Cap (remaining)';
                                     const pct = (ctx.raw * 100).toFixed(1);
-                                    const labels = ['Revenue', 'Net Income', 'FCF'];
+                                    const labels = ['Revenue', 'Net Income', 'FCF', 'NWC'];
                                     return ` ${labels[ctx.datasetIndex]}: ${pct}% of Mkt Cap`;
                                 }
                             }
