@@ -1,6 +1,23 @@
-# Intrinsic Valuation Dashboard - V3 Architecture
+# Intrinsic Valuation Dashboard — V3
 
 Welcome to the **Intrinsic Valuation API & Dashboard (V3)**. This application aggregates, parses, and formats critical fundamental indicators from B3 (Brazilian Stocks/FIIs/News) and US Markets into a high-density, 1980s retro-Bloomberg styled interface.
+
+---
+
+## ✨ What's New in V3
+
+| Feature | Description |
+|---------|-------------|
+| **Valuation Grid View** | Visual donut-chart cards showing P/E, P/S, P/FCF, and P/NWC ratios as concentric rings against Market Cap — available on BR Stocks, US Stocks, and US REITs |
+| **Card Dismiss / Exclude** | Remove any security from the grid with a ✕ button; exclusions persist in localStorage config |
+| **US REITs Grid + Ranking** | US REITs tab now supports the full grid view and stock-type ranking algorithm with rank badges (🏆🏅🥉) |
+| **Collapsible Sidebar** | Toggle the navigation rail between full-width labels and compact 60px icon-only mode |
+| **Column-Level Filtering** | Real-time text search and numeric comparisons (`>10`, `<5`, `>=3`) directly in table headers |
+| **Price-to-Net-Working-Capital** | P/NWC metric computed from balance sheet (Current Assets − Current Liabilities) vs Market Cap |
+| **External Research Links** | Quick links to StatusInvest, Investidor10, and TradingView for every ticker |
+| **CSV Export** | Export any tab's data to semicolon-delimited CSV with UTF-8 BOM |
+
+---
 
 ## 🏗️ Architecture & Component Relationships
 
@@ -18,12 +35,14 @@ graph TD
     subgraph Frontend [UI Layer - Vanilla JS/CSS]
         UI[Retro Bloomberg UI]:::frontend
         Settings[Settings Modal]:::frontend
+        Grid[Valuation Grid View]:::frontend
     end
 
     subgraph Backend [FastAPI Server]
         API[FastAPI Routes]:::backend
         DataService[Data Service Module]:::backend
         NewsService[News Service Module]:::backend
+        IndexService[Index Service Module]:::backend
     end
 
     subgraph Data Stores [Caching & Persistence]
@@ -40,12 +59,15 @@ graph TD
 
     %% Flow
     UI -->|HTTP GET /api/*| API
+    Grid -->|HTTP GET /api/*| API
     Settings -->|HTTP POST /api/cache| API
     API --> DataService
     API --> NewsService
+    API --> IndexService
 
     DataService --> Peewee
     NewsService --> Peewee
+    IndexService --> Peewee
     Peewee --> DB
 
     DataService --> ReqCache
@@ -86,19 +108,24 @@ sequenceDiagram
     Backend-->>User: Return clean dataset
 ```
 
+---
+
 ## 📸 Core Features & Navigation
 
 ### 1. BR Stocks (Ações Brasileiras)
+
 The Brazilian stocks tab cross-references data from StatusInvest and Yahoo Finance. It calculates Free Cash Flow (FCF) dynamically from TTM financial statements and applies a strict ranking algorithm (prioritizing low PEG, low P/FCF, and high ROE).
 
 ![BR Stocks](assets/tab_br-stocks.png)
 
 ### 2. US Stocks (Ações Americanas)
+
 A dedicated view for the US Market, utilizing the same core fundamentals. It includes an **Anomaly Firewall** that intercepts hyper-inflated anomalies (e.g., Argentine ADRs displaying >1000% ROE) and falls back to reliable bounds.
 
 ![US Stocks](assets/tab_us-stocks.png)
 
 ### 3. BR FIIs (Fundos Imobiliários)
+
 Specialized tab for Brazilian REITs. It features:
 * **Ceiling Price Calculation**: Dynamically computed based on global macroeconomic settings (NTN-B, Spread, Selic).
 * **Sharpe Ratio**: Assesses the historical risk-adjusted return of the fund against the Selic rate.
@@ -107,28 +134,66 @@ Specialized tab for Brazilian REITs. It features:
 ![BR FIIs](assets/tab_br-fiis.png)
 
 ### 4. US REITs
-An overview of US Real Estate Investment Trusts, tracking Dividend Yields, P/VPA, and price actions.
+
+US Real Estate Investment Trusts now feature the full stock-type ranking algorithm and support both table and grid views. Track Dividend Yields, P/E, P/FCF, ROIC, and more alongside rank badges (🏆🏅🥉).
 
 ![US REITs](assets/tab_us-reits.png)
 
 ### 5. B3 Indices Configuration
+
 Allows users to dynamically set the default composition array for the BR Stocks tab. Selecting `IBOV`, `IFIX`, or `SMLL` triggers backend logic to immediately resolve and inject the precise index ticker makeup.
 
 ![B3 Indices](assets/tab_b3-indices.png)
 
 ### 6. Market News Feed
+
 Features an advanced regex parsing engine that filters unstructured text directly from the B3 string pipeline. It dynamically extracts over 20+ hidden event classifications (e.g., `DEMONSTRAÇÕES FINANCEIRAS`, `AVISO AOS ACIONISTAS`) and plots them alongside the ticker.
 
 ![Market News](assets/tab_market-news.png)
 
 ### 7. Global Configuration
+
 A quick-access settings modal allows the user to manually configure the default tickers for each tab, set the Cache Expiration window, and configure macroeconomic variables (NTN-B, Spread, IPCA, Selic) for advanced Intrinsic Valuation formulas.
 
 ![Settings Modal](assets/settings_modal.png)
 
 ---
 
-## ⚡ How to run it locally
+## 🍩 Valuation Grid View
+
+Toggle between the traditional data table and a visual **Valuation Grid** using the `🍩 GRID / 📊 TABLE` button. Available on **BR Stocks**, **US Stocks**, and **US REITs**.
+
+Each card features:
+* **Four concentric donut rings** powered by Chart.js, visualizing how Revenue, Net Income, Free Cash Flow, and Net Working Capital compare to Market Cap
+* **Color-coded metrics** — green for deep value (e.g., P/E ≤ 10), red for overvalued (e.g., P/E > 25)
+* **Rank badges** (🏆🏅🥉) from the composite scoring algorithm
+* **Deep value highlight** — cards with P/E ≤ 10 get a green left-border accent
+* **Dismiss button (✕)** — hover over any card to reveal a remove button; clicking it excludes the security from the view and persists the change to your global config
+
+### US Stocks — Grid View
+
+![US Stocks Grid](assets/grid_us-stocks.png)
+
+### BR Stocks — Grid View
+
+![BR Stocks Grid](assets/grid_br-stocks.png)
+
+### US REITs — Grid View
+
+![US REITs Grid](assets/grid_us-reits.png)
+
+---
+
+## 🔍 Column-Level Filtering
+
+Every table column has an inline filter input supporting:
+* **Text search** — type any substring to filter by ticker or name
+* **Numeric comparisons** — use operators like `>10`, `<5`, `>=3`, `<=1`, `=0.5`
+* **Real-time updates** — filters apply instantly as you type, persisting across sort operations
+
+---
+
+## ⚡ How to Run Locally
 
 We consolidated execution. You no longer need to run multiple terminals.
 
@@ -144,4 +209,30 @@ To verify the integrity of the data services without making external web calls:
 ```bash
 source venv/bin/activate
 pytest -v tests/
+```
+
+---
+
+## 📁 Project Structure
+
+```
+intrinsic/
+├── app/
+│   ├── api/routes.py          # FastAPI endpoints
+│   ├── config.py              # Constants, defaults, mappings
+│   ├── domain/calculations.py # Ranking & enrichment logic
+│   ├── models.py              # Peewee ORM models
+│   ├── services/
+│   │   ├── data_service.py    # StatusInvest + yfinance fetcher
+│   │   ├── news_service.py    # B3 news parser
+│   │   └── index_service.py   # B3 index composition resolver
+│   └── main.py                # FastAPI app factory
+├── frontend/
+│   ├── index.html             # Single-page dashboard
+│   ├── index.css              # Retro Bloomberg theme
+│   └── app.js                 # Client-side logic & Chart.js
+├── assets/                    # README screenshots
+├── tests/                     # Pytest test suite
+├── start.sh                   # Unified launcher script
+└── requirements.txt           # Python dependencies
 ```
