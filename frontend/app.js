@@ -472,8 +472,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (viewToggleBtn) viewToggleBtn.style.display = 'inline-block';
         } else {
             if (manualAssetsSection) manualAssetsSection.style.display = 'none';
-            if (viewToggleBtn) viewToggleBtn.style.display = 'none';
-            currentViewMode = 'table'; // Reset to table for non-stock tabs
+            if (viewToggleBtn) {
+                if (tabId === 'us-reits') {
+                    viewToggleBtn.style.display = 'inline-block';
+                } else {
+                    viewToggleBtn.style.display = 'none';
+                }
+            }
+            if (tabId !== 'us-reits') {
+                currentViewMode = 'table'; // Reset to table for non-grid tabs
+            }
         }
 
         tableContainer.style.display = 'none';
@@ -593,8 +601,8 @@ document.addEventListener('DOMContentLoaded', () => {
             
             currentData = data;
             
-            if (config.type === 'stock' || (config.type === 'reit' && currentTab === 'br-fiis')) {
-                calculateRanking(currentData, config.type);
+            if (config.type === 'stock' || (config.type === 'reit' && currentTab === 'br-fiis') || currentTab === 'us-reits') {
+                calculateRanking(currentData, currentTab === 'us-reits' ? 'stock' : config.type);
                 if (!currentSort.column) {
                     currentSort = { column: 'final_rank', asc: true };
                 }
@@ -612,8 +620,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function applyViewMode() {
-        const isStock = TAB_CONFIG[currentTab]?.type === 'stock';
-        if (!isStock || currentViewMode === 'table') {
+        const supportsGrid = TAB_CONFIG[currentTab]?.type === 'stock' || currentTab === 'us-reits';
+        if (!supportsGrid || currentViewMode === 'table') {
             tableContainer.style.display = 'block';
             if (valuationGrid) valuationGrid.style.display = 'none';
             if (viewToggleBtn) {
@@ -679,13 +687,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             return `
-                <div class="valuation-card ${deepClass}" data-idx="${idx}">
+                <div class="valuation-card ${deepClass}" data-idx="${idx}" data-ticker="${item.ticker}">
                     <div class="valuation-card-header">
                         <div>
                             <div class="valuation-card-ticker">${item.ticker}</div>
                             <div class="valuation-card-name">${name}</div>
                         </div>
-                        ${rankBadge}
+                        <div class="valuation-card-actions">
+                            ${rankBadge}
+                            <button class="valuation-card-dismiss" data-ticker="${item.ticker}" title="Remove ${escapeHTML(item.ticker)}">✕</button>
+                        </div>
                     </div>
                     <div class="valuation-card-body">
                         ${hasData ? `
@@ -838,6 +849,53 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             donutChartInstances.push(chart);
         });
+
+        // Attach dismiss handlers
+        valuationGrid.querySelectorAll('.valuation-card-dismiss').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const ticker = btn.dataset.ticker;
+                const card = btn.closest('.valuation-card');
+                if (card) {
+                    card.classList.add('removing');
+                    setTimeout(() => excludeFromGrid(ticker), 350);
+                }
+            });
+        });
+    }
+
+    function getConfigKeyForTab(tabId) {
+        if (tabId === 'br-stocks') return 'cfg_br';
+        if (tabId === 'us-stocks') return 'cfg_us';
+        if (tabId === 'us-reits') return 'cfg_reits';
+        return null;
+    }
+
+    function excludeFromGrid(ticker) {
+        // Remove from currentData
+        currentData = currentData.filter(item => item.ticker !== ticker);
+
+        // Persist to localStorage config
+        const configKey = getConfigKeyForTab(currentTab);
+        if (configKey) {
+            const remaining = currentData.map(item => {
+                // BR stocks store tickers without .SA suffix
+                if (currentTab === 'br-stocks') return item.ticker.replace('.SA', '');
+                return item.ticker;
+            });
+            localStorage.setItem(configKey, remaining.join(','));
+        }
+
+        // Recalculate ranking
+        const config = TAB_CONFIG[currentTab];
+        if (config.type === 'stock' || currentTab === 'us-reits') {
+            calculateRanking(currentData, currentTab === 'us-reits' ? 'stock' : config.type);
+        } else if (config.type === 'reit' && currentTab === 'br-fiis') {
+            calculateRanking(currentData, config.type);
+        }
+
+        // Re-render grid
+        renderValuationGrid(getFilteredData());
     }
 
     function getExternalLinksHTML(ticker) {

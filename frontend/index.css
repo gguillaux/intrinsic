@@ -761,6 +761,12 @@ body.theme-light .rank-5:hover { background-color: rgba(69, 165, 174, 0.2); }
     max-width: 200px;
 }
 
+.valuation-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
 .valuation-card-rank {
     font-family: 'Fira Code', monospace;
     font-weight: 700;
@@ -769,6 +775,40 @@ body.theme-light .rank-5:hover { background-color: rgba(69, 165, 174, 0.2); }
     padding: 0.15rem 0.5rem;
     border: 1px solid var(--border);
     white-space: nowrap;
+}
+
+.valuation-card-dismiss {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 0.15rem 0.4rem;
+    font-family: 'Fira Code', monospace;
+    opacity: 0;
+    transition: all 0.2s ease;
+    line-height: 1;
+}
+
+.valuation-card:hover .valuation-card-dismiss {
+    opacity: 0.5;
+}
+
+.valuation-card-dismiss:hover {
+    opacity: 1 !important;
+    color: var(--danger);
+    border-color: var(--danger);
+    background: rgba(255, 82, 82, 0.1);
+}
+
+/* Fade-out animation for removed cards */
+.valuation-card.removing {
+    animation: cardFadeOut 0.35s ease forwards;
+}
+
+@keyframes cardFadeOut {
+    0% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(0.9); }
 }
 
 .valuation-card-body {
