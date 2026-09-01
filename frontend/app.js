@@ -72,8 +72,13 @@ document.addEventListener('DOMContentLoaded', () => {
             return devConf ? `/stocks/us?tickers=${devConf}` : `/stocks/us`;
         }
         if (tabId === 'br-fiis') {
+            const ntnb = parseFloat(localStorage.getItem('cfg_ntnb')) || 6.00;
+            const spread = parseFloat(localStorage.getItem('cfg_spread')) || 4.00;
+            const selic = parseFloat(localStorage.getItem('cfg_selic')) || 10.50;
             const devConf = localStorage.getItem('cfg_fiis');
-            return devConf ? `/fiis/br?tickers=${devConf}` : `/fiis/br`;
+            let url = devConf ? `/fiis/br?tickers=${devConf}` : `/fiis/br`;
+            url += (url.includes('?') ? '&' : '?') + `ntnb=${ntnb}&spread=${spread}&selic=${selic}`;
+            return url;
         }
         if (tabId === 'us-reits') {
             const devConf = localStorage.getItem('cfg_reits');
@@ -421,6 +426,78 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function parseNewsItems(data) {
+        const KNOWN_NEWS_TYPES = [
+            'SUMARIO DE DECISOES', 'SUMARIO AGE', 'SUMARIO AGOE', 'SUMARIO AGO',
+            'PROPOSTA DA ADMINISTRACAO', 'PROPOSTA AGE', 'PROPOSTA AGOE', 'PROPOSTA AGO',
+            'EDITAL DE CONVOCACAO', 'EDITAL AGE', 'EDITAL AGOE', 'EDITAL AGO',
+            'ATA DE REUNIAO', 'ATA AGE', 'ATA AGOE', 'ATA AGO', 'ATA RCA', 'ATA',
+            'DEMONSTRACOES FINANCEIRAS', 'DEMONST. FINANC.', 'DEMONSTRACAO FINANCEIRA',
+            'AVISO AOS ACIONISTAS', 'AVISO AOS DEBENTURISTAS', 'AVISO AOS COTISTAS',
+            'FATO RELEVANTE', 'COMUNICADO AO MERCADO',
+            'INFORME MENSAL', 'INFORME TRIMESTRAL', 'RELATORIO GERENCIAL',
+            'PROVENTOS'
+        ];
+
+        data.forEach(item => {
+            let datePart = '', timePart = '';
+            const pub = item.published_at || '';
+            if (pub.includes('T')) {
+                datePart = pub.split('T')[0];
+                timePart = pub.split('T')[1].split('.')[0];
+            } else if (pub.includes(' ')) {
+                datePart = pub.split(' ')[0];
+                timePart = pub.split(' ')[1].split('.')[0];
+            }
+
+            let formattedDate = datePart;
+            if (datePart) {
+                const parts = datePart.split('-');
+                if (parts.length === 3) formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+            }
+
+            let asset = '-';
+            let headlineStr = item.title || "";
+
+            const tickerMatch = headlineStr.match(/\(([A-Z0-9]+)\)/);
+            if (tickerMatch) {
+                asset = tickerMatch[1];
+                headlineStr = headlineStr.replace(tickerMatch[0], '').replace(/\s+/g, ' ').trim();
+            }
+
+            const dashParts = headlineStr.split(' - ');
+            let companyName = dashParts[0].trim();
+            let actualNewsType = '-';
+
+            if (dashParts.length > 1 && dashParts[1].trim() !== '') {
+                actualNewsType = dashParts[1].trim();
+            }
+
+            if (actualNewsType === '-') {
+                const upperHeadline = companyName.toUpperCase();
+                for (const kt of KNOWN_NEWS_TYPES) {
+                    if (upperHeadline.includes(kt)) {
+                        actualNewsType = kt;
+                        const regexStr = kt.split(' ').join('\\s+');
+                        companyName = companyName.replace(new RegExp(regexStr, 'ig'), '').trim();
+                        companyName = companyName.replace(/^[-:\s]+|[-:\s]+$/g, '').trim();
+                        if (!companyName) companyName = actualNewsType;
+                        break;
+                    }
+                }
+            }
+
+            actualNewsType = actualNewsType.replace(/\s*-?\s*\d{2}\/\d{2}\/\d{4}(\s+\d{2}:\d{2})?\s*$/, '').trim();
+            actualNewsType = actualNewsType.replace(/\s*-?\s*\d{2}\/\d{4}\s*$/, '').trim();
+
+            item.parsedDate = formattedDate;
+            item.parsedTime = timePart;
+            item.parsedAsset = asset;
+            item.parsedHeadline = companyName;
+            item.parsedType = actualNewsType;
+        });
+    }
+
     async function loadTabData(tabId) {
         const config = TAB_CONFIG[tabId];
         
@@ -473,13 +550,13 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             if (manualAssetsSection) manualAssetsSection.style.display = 'none';
             if (viewToggleBtn) {
-                if (tabId === 'us-reits') {
+                if (tabId === 'us-reits' || tabId === 'br-fiis') {
                     viewToggleBtn.style.display = 'inline-block';
                 } else {
                     viewToggleBtn.style.display = 'none';
                 }
             }
-            if (tabId !== 'us-reits') {
+            if (tabId !== 'us-reits' && tabId !== 'br-fiis') {
                 currentViewMode = 'table'; // Reset to table for non-grid tabs
             }
         }
@@ -500,109 +577,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error("Network response was not ok");
             
             const data = await response.json();
-            
-            if (tabId === 'br-fiis') {
-                const ntnb = parseFloat(localStorage.getItem('cfg_ntnb')) || 6.00;
-                const spread = parseFloat(localStorage.getItem('cfg_spread')) || 4.00;
-                const selic = parseFloat(localStorage.getItem('cfg_selic')) || 10.50;
-                const denom = ntnb + spread;
-                data.forEach(item => {
-                    item.ceiling_price = (denom !== 0 && item.price != null && item.dividend_yield != null) 
-                        ? ((item.price * item.dividend_yield) / denom) 
-                        : null;
-                        
-                    if (item.min_52w && item.max_52w && item.min_52w > 0 && item.val_cagr !== null) {
-                        const lnHL = Math.log(item.max_52w / item.min_52w);
-                        const parkinsonVol = (1 / (2 * Math.sqrt(Math.LN2))) * lnHL;
-                        const returnDec = item.val_cagr / 100;
-                        const selicDec = selic / 100;
-                        if (parkinsonVol > 0) {
-                            item.sharpe_ratio = (returnDec - selicDec) / parkinsonVol;
-                        } else {
-                            item.sharpe_ratio = null;
-                        }
-                    } else {
-                        item.sharpe_ratio = null;
-                    }
-                });
-            }
-            
+
             if (tabId === 'market-news') {
-                data.forEach(item => {
-                    let datePart = '', timePart = '';
-                    const pub = item.published_at || '';
-                    if (pub.includes('T')) {
-                        datePart = pub.split('T')[0];
-                        timePart = pub.split('T')[1].split('.')[0];
-                    } else if (pub.includes(' ')) {
-                        datePart = pub.split(' ')[0];
-                        timePart = pub.split(' ')[1].split('.')[0];
-                    }
-                    
-                    let formattedDate = datePart;
-                    if (datePart) {
-                        const parts = datePart.split('-');
-                        if (parts.length === 3) formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
-                    }
-
-                    let asset = '-';
-                    let headlineStr = item.title || "";
-                    
-                    const tickerMatch = headlineStr.match(/\(([A-Z0-9]+)\)/);
-                    if (tickerMatch) {
-                        asset = tickerMatch[1];
-                        headlineStr = headlineStr.replace(tickerMatch[0], '').replace(/\s+/g, ' ').trim();
-                    }
-
-                    const dashParts = headlineStr.split(' - ');
-                    let companyName = dashParts[0].trim();
-                    let actualNewsType = '-';
-                    
-                    if (dashParts.length > 1 && dashParts[1].trim() !== '') {
-                        actualNewsType = dashParts[1].trim();
-                    }
-
-                    if (actualNewsType === '-') {
-                        const knownTypes = [
-                            'SUMARIO DE DECISOES', 'SUMARIO AGE', 'SUMARIO AGOE', 'SUMARIO AGO',
-                            'PROPOSTA DA ADMINISTRACAO', 'PROPOSTA AGE', 'PROPOSTA AGOE', 'PROPOSTA AGO',
-                            'EDITAL DE CONVOCACAO', 'EDITAL AGE', 'EDITAL AGOE', 'EDITAL AGO',
-                            'ATA DE REUNIAO', 'ATA AGE', 'ATA AGOE', 'ATA AGO', 'ATA RCA', 'ATA',
-                            'DEMONSTRACOES FINANCEIRAS', 'DEMONST. FINANC.', 'DEMONSTRACAO FINANCEIRA',
-                            'AVISO AOS ACIONISTAS', 'AVISO AOS DEBENTURISTAS', 'AVISO AOS COTISTAS',
-                            'FATO RELEVANTE', 'COMUNICADO AO MERCADO', 
-                            'INFORME MENSAL', 'INFORME TRIMESTRAL', 'RELATORIO GERENCIAL', 
-                            'PROVENTOS'
-                        ];
-                        
-                        const upperHeadline = companyName.toUpperCase();
-                        for (const kt of knownTypes) {
-                            if (upperHeadline.includes(kt)) {
-                                actualNewsType = kt;
-                                const regexStr = kt.split(' ').join('\\s+');
-                                companyName = companyName.replace(new RegExp(regexStr, 'ig'), '').trim();
-                                companyName = companyName.replace(/^[-:\s]+|[-:\s]+$/g, '').trim();
-                                if (!companyName) companyName = actualNewsType;
-                                break;
-                            }
-                        }
-                    }
-
-                    actualNewsType = actualNewsType.replace(/\s*-?\s*\d{2}\/\d{2}\/\d{4}(\s+\d{2}:\d{2})?\s*$/, '').trim();
-                    actualNewsType = actualNewsType.replace(/\s*-?\s*\d{2}\/\d{4}\s*$/, '').trim();
-
-                    item.parsedDate = formattedDate;
-                    item.parsedTime = timePart;
-                    item.parsedAsset = asset;
-                    item.parsedHeadline = companyName;
-                    item.parsedType = actualNewsType;
-                });
+                parseNewsItems(data);
             }
             
             currentData = data;
             
+            // Only re-rank client-side for US REITs (backend doesn't rank them).
+            // BR stocks, US stocks, and BR FIIs are already ranked by the backend.
+            if (currentTab === 'us-reits') {
+                calculateRanking(currentData, 'stock');
+            }
             if (config.type === 'stock' || (config.type === 'reit' && currentTab === 'br-fiis') || currentTab === 'us-reits') {
-                calculateRanking(currentData, currentTab === 'us-reits' ? 'stock' : config.type);
                 if (!currentSort.column) {
                     currentSort = { column: 'final_rank', asc: true };
                 }
@@ -620,7 +607,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function applyViewMode() {
-        const supportsGrid = TAB_CONFIG[currentTab]?.type === 'stock' || currentTab === 'us-reits';
+        const supportsGrid = TAB_CONFIG[currentTab]?.type === 'stock' || currentTab === 'us-reits' || currentTab === 'br-fiis';
         if (!supportsGrid || currentViewMode === 'table') {
             tableContainer.style.display = 'block';
             if (valuationGrid) valuationGrid.style.display = 'none';
@@ -641,8 +628,234 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // ---- FII Valuation Grid (P/VP, DY, DY CAGR, Sharpe) ----
+    function renderFiiValuationGrid(data) {
+        if (!valuationGrid) return;
+
+        // Destroy previous Chart.js instances
+        donutChartInstances.forEach(c => c.destroy());
+        donutChartInstances = [];
+
+        // Sort by P/VP ascending (lowest = best relative value)
+        const sorted = [...data].sort((a, b) => {
+            const pvpA = (a.p_vpa != null && a.p_vpa > 0) ? a.p_vpa : Infinity;
+            const pvpB = (b.p_vpa != null && b.p_vpa > 0) ? b.p_vpa : Infinity;
+            if (pvpA !== pvpB) return pvpA - pvpB;
+            const dyA = (a.dividend_yield != null) ? a.dividend_yield : -Infinity;
+            const dyB = (b.dividend_yield != null) ? b.dividend_yield : -Infinity;
+            return dyB - dyA; // higher DY as tiebreaker
+        });
+
+        valuationGrid.innerHTML = sorted.map((item, idx) => {
+            const hasData = (item.p_vpa != null) || (item.dividend_yield != null && item.dividend_yield > 0);
+            const isDeepValue = item.p_vpa != null && item.p_vpa > 0 && item.p_vpa < 1.0;
+            const deepClass = isDeepValue ? 'deep-value-card' : '';
+
+            const pvpValClass = item.p_vpa != null ? (item.p_vpa > 0 && item.p_vpa < 1.0 ? 'deep-value' : (item.p_vpa > 1.2 ? 'overvalued' : '')) : '';
+            const dyValClass = item.dividend_yield != null ? (item.dividend_yield > 6 ? 'deep-value' : '') : '';
+            const dyCagrClass = item.dy_cagr != null ? (item.dy_cagr > 0 ? 'deep-value' : (item.dy_cagr < 0 ? 'overvalued' : '')) : '';
+            const sharpeClass = item.sharpe_ratio != null ? (item.sharpe_ratio > 0 ? 'deep-value' : 'overvalued') : '';
+
+            const pvpDisplay = item.p_vpa != null ? `${item.p_vpa.toFixed(2)}x` : '-';
+            const dyDisplay = item.dividend_yield != null ? `${item.dividend_yield.toFixed(2)}%` : '-';
+            const dyCagrDisplay = item.dy_cagr != null ? `${item.dy_cagr.toFixed(2)}%` : '-';
+            const sharpeDisplay = item.sharpe_ratio != null ? `${item.sharpe_ratio.toFixed(2)}` : '-';
+            const ceilingDisplay = item.ceiling_price != null ? `R$ ${item.ceiling_price.toFixed(2)}` : '-';
+            const name = item.name ? escapeHTML(item.name) : 'Unknown';
+
+            let rankBadge = '';
+            if (item.final_rank) {
+                let icon = '';
+                if (item.final_rank === 1) icon = '\uD83C\uDFC6';
+                else if (item.final_rank === 2) icon = '\uD83C\uDFC5';
+                else if (item.final_rank === 3) icon = '\uD83E\uDD49';
+                rankBadge = `<span class="valuation-card-rank">#${item.final_rank} ${icon}</span>`;
+            }
+
+            return `
+                <div class="valuation-card ${deepClass}" data-idx="${idx}" data-ticker="${item.ticker}">
+                    <div class="valuation-card-header">
+                        <div>
+                            <div class="valuation-card-ticker">${item.ticker}</div>
+                            <div class="valuation-card-name">${name}</div>
+                        </div>
+                        <div class="valuation-card-actions">
+                            ${rankBadge}
+                            <button class="valuation-card-dismiss" data-ticker="${item.ticker}" title="Remove ${escapeHTML(item.ticker)}">✕</button>
+                        </div>
+                    </div>
+                    <div class="valuation-card-body">
+                        ${hasData ? `
+                            <div class="valuation-donut-container">
+                                <canvas id="donut-${idx}" width="130" height="130"></canvas>
+                                <div class="valuation-donut-center">${item.price != null ? 'R$' + item.price.toFixed(2) : '-'}</div>
+                            </div>
+                        ` : `
+                            <div class="valuation-no-data">No valuation data</div>
+                        `}
+                        <div class="valuation-metrics">
+                            <div class="valuation-metric-row">
+                                <span class="valuation-metric-label">P/VP</span>
+                                <span class="valuation-metric-value ${pvpValClass}">${pvpDisplay}</span>
+                            </div>
+                            <div class="valuation-metric-row">
+                                <span class="valuation-metric-label">Div Yield</span>
+                                <span class="valuation-metric-value ${dyValClass}">${dyDisplay}</span>
+                            </div>
+                            <div class="valuation-metric-row">
+                                <span class="valuation-metric-label">DY CAGR 3Y</span>
+                                <span class="valuation-metric-value ${dyCagrClass}">${dyCagrDisplay}</span>
+                            </div>
+                            <div class="valuation-metric-row">
+                                <span class="valuation-metric-label">Sharpe</span>
+                                <span class="valuation-metric-value ${sharpeClass}">${sharpeDisplay}</span>
+                            </div>
+                            <div class="valuation-metric-row">
+                                <span class="valuation-metric-label">Ceiling</span>
+                                <span class="valuation-metric-value">${ceilingDisplay}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="valuation-card-legend">
+                        <span class="valuation-legend-item"><span class="valuation-legend-dot" style="background:#22c55e"></span> DY CAGR</span>
+                        <span class="valuation-legend-item"><span class="valuation-legend-dot" style="background:#f59e0b"></span> Div Yield</span>
+                        <span class="valuation-legend-item"><span class="valuation-legend-dot" style="background:#3b82f6"></span> Sharpe</span>
+                        <span class="valuation-legend-item"><span class="valuation-legend-dot" style="background:#c084fc"></span> P/VP</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Create Chart.js donut charts — four concentric rings for FII metrics
+        // Outer: DY CAGR (growth), 2nd: Div Yield (income), 3rd: Sharpe (risk-adjusted), Inner: P/VP (valuation)
+        sorted.forEach((item, idx) => {
+            const canvas = document.getElementById(`donut-${idx}`);
+            if (!canvas) return;
+
+            // DY CAGR: higher is better, benchmark at 15%
+            const dyCagrRatio = (item.dy_cagr != null && item.dy_cagr > 0)
+                ? Math.min(item.dy_cagr / 15, 1) : 0;
+
+            // Dividend Yield: higher is better, benchmark at 10%
+            const dyRatio = (item.dividend_yield != null && item.dividend_yield > 0)
+                ? Math.min(item.dividend_yield / 10, 1) : 0;
+
+            // Sharpe Ratio: higher is better, clamped to [0, 2]
+            const sharpeRatio = (item.sharpe_ratio != null && item.sharpe_ratio > 0)
+                ? Math.min(item.sharpe_ratio / 2, 1) : 0;
+
+            // P/VP: lower is better, inverted (1/p_vpa), capped at 1
+            const pvpRatio = (item.p_vpa != null && item.p_vpa > 0)
+                ? Math.min(1 / item.p_vpa, 1) : 0;
+
+            const chart = new Chart(canvas.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Value', 'Remaining'],
+                    datasets: [
+                        {
+                            // Outer ring — DY CAGR
+                            label: 'DY CAGR',
+                            data: [dyCagrRatio, 1 - dyCagrRatio],
+                            backgroundColor: ['#22c55e', '#3a3a3a'],
+                            borderColor: ['#16a34a', '#2a2a2a'],
+                            borderWidth: 1,
+                            hoverBorderWidth: 2,
+                            hoverBorderColor: ['#4ade80', '#555'],
+                            weight: 1,
+                        },
+                        {
+                            // 2nd ring — Dividend Yield
+                            label: 'Div Yield',
+                            data: [dyRatio, 1 - dyRatio],
+                            backgroundColor: ['#f59e0b', '#3a3a3a'],
+                            borderColor: ['#d97706', '#2a2a2a'],
+                            borderWidth: 1,
+                            hoverBorderWidth: 2,
+                            hoverBorderColor: ['#fbbf24', '#555'],
+                            weight: 1,
+                        },
+                        {
+                            // 3rd ring — Sharpe Ratio
+                            label: 'Sharpe',
+                            data: [sharpeRatio, 1 - sharpeRatio],
+                            backgroundColor: ['#3b82f6', '#3a3a3a'],
+                            borderColor: ['#2563eb', '#2a2a2a'],
+                            borderWidth: 1,
+                            hoverBorderWidth: 2,
+                            hoverBorderColor: ['#60a5fa', '#555'],
+                            weight: 1,
+                        },
+                        {
+                            // Inner ring — P/VP (inverted, lower is better)
+                            label: 'P/VP',
+                            data: [pvpRatio, 1 - pvpRatio],
+                            backgroundColor: ['#c084fc', '#3a3a3a'],
+                            borderColor: ['#a855f7', '#2a2a2a'],
+                            borderWidth: 1,
+                            hoverBorderWidth: 2,
+                            hoverBorderColor: ['#d8b4fe', '#555'],
+                            weight: 1,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: false,
+                    cutout: '30%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#1a1a1a',
+                            titleFont: { family: 'Fira Code', size: 11 },
+                            bodyFont: { family: 'Fira Code', size: 11 },
+                            borderColor: '#333',
+                            borderWidth: 1,
+                            callbacks: {
+                                title: function(tooltipItems) {
+                                    const dsIdx = tooltipItems[0].datasetIndex;
+                                    const titles = ['DY CAGR 3Y', 'Dividend Yield', 'Sharpe Ratio', 'P/VP (inverted)'];
+                                    return titles[dsIdx] || '';
+                                },
+                                label: function(ctx) {
+                                    if (ctx.dataIndex === 1) return ' Remaining';
+                                    const pct = (ctx.raw * 100).toFixed(1);
+                                    const labels = ['DY CAGR', 'Div Yield', 'Sharpe', 'P/VP'];
+                                    return ` ${labels[ctx.datasetIndex]}: ${pct}% fill`;
+                                }
+                            }
+                        }
+                    },
+                    animation: {
+                        animateRotate: true,
+                        duration: 800
+                    }
+                }
+            });
+            donutChartInstances.push(chart);
+        });
+
+        // Attach dismiss handlers
+        valuationGrid.querySelectorAll('.valuation-card-dismiss').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const ticker = btn.dataset.ticker;
+                const card = btn.closest('.valuation-card');
+                if (card) {
+                    card.classList.add('removing');
+                    setTimeout(() => excludeFromGrid(ticker), 350);
+                }
+            });
+        });
+    }
+
     function renderValuationGrid(data) {
         if (!valuationGrid) return;
+
+        // Dispatch to FII-specific renderer
+        if (currentTab === 'br-fiis') {
+            renderFiiValuationGrid(data);
+            return;
+        }
 
         // Destroy previous Chart.js instances
         donutChartInstances.forEach(c => c.destroy());
@@ -868,6 +1081,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (tabId === 'br-stocks') return 'cfg_br';
         if (tabId === 'us-stocks') return 'cfg_us';
         if (tabId === 'us-reits') return 'cfg_reits';
+        if (tabId === 'br-fiis') return 'cfg_fiis';
         return null;
     }
 
@@ -879,8 +1093,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const configKey = getConfigKeyForTab(currentTab);
         if (configKey) {
             const remaining = currentData.map(item => {
-                // BR stocks store tickers without .SA suffix
-                if (currentTab === 'br-stocks') return item.ticker.replace('.SA', '');
+                // BR assets store tickers without .SA suffix
+                if (currentTab === 'br-stocks' || currentTab === 'br-fiis') return item.ticker.replace('.SA', '');
                 return item.ticker;
             });
             localStorage.setItem(configKey, remaining.join(','));
@@ -928,9 +1142,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function escapeHTML(str) {
         if (str == null) return '';
-        const div = document.createElement('div');
-        div.textContent = String(str);
-        return div.innerHTML;
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
     function getFilteredData() {
@@ -1250,7 +1462,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="${fcfClass}">${item.p_fcf !== null && item.p_fcf !== undefined ? item.p_fcf.toFixed(2) : '-'}</td>
                     <td class="${peClass}">${formatNumber(item.pe)}</td>
                     <td class="${(item.p_a != null && item.p_a < 1) ? 'good-metric' : (item.p_a != null && item.p_a > 3 ? 'bad-metric' : '')}">${formatNumber(item.p_a)}</td>
-                    <td class="${'good-metric'}">${formatNumber(item.eps)}</td>
+                    <td class="${(item.eps != null && item.eps > 0) ? 'good-metric' : (item.eps != null && item.eps < 0 ? 'bad-metric' : '')}">${formatNumber(item.eps)}</td>
                     <td class="${debtEbitClass}">${formatNumber(item.debt_ebit)}</td>
                     <td class="${roicClass}">${formatPercent(item.roic)}</td>
                     <td class="${roeClass}">${formatPercent(item.roe)}</td>

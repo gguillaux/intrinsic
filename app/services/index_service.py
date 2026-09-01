@@ -1,14 +1,10 @@
 import logging
-import requests
 import datetime
-from bs4 import BeautifulSoup
 from ..models import IndexComposition
 from ..database import db
+from ..config import B3_INDICES
 
 logger = logging.getLogger(__name__)
-
-# Common B3 Indices
-B3_INDICES = ["IBOV", "IFIX", "SMLL", "IDIV", "IBRX"]
 
 def fetch_and_store_indices():
     """

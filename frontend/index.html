@@ -137,14 +137,14 @@
             </section>
 
             <!-- Manual Assets Input -->
-            <section id="manual-assets-section" style="display: none; padding: 1.5rem; border-top: 2px solid var(--border); background: var(--bg-surface);">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <input type="checkbox" id="manual-assets-checkbox" style="width: 1rem; height: 1rem; accent-color: var(--accent); cursor: pointer;">
-                    <label for="manual-assets-checkbox" style="font-weight: bold; color: var(--accent); cursor: pointer;">Informar Ativos Manualmente</label>
+            <section id="manual-assets-section" class="manual-assets-section">
+                <div class="manual-assets-header">
+                    <input type="checkbox" id="manual-assets-checkbox" class="manual-assets-checkbox">
+                    <label for="manual-assets-checkbox" class="manual-assets-label">Informar Ativos Manualmente</label>
                 </div>
-                <div id="manual-assets-input-container" style="display: none; margin-top: 1rem;">
-                    <textarea id="manual-assets-textarea" placeholder="Cole aqui os tickers separados por vírgula ou espaço (ex: PETR4.SA, VALE3.SA)..." style="width: 100%; height: 80px; padding: 0.8rem; background: var(--bg-main); color: var(--text-primary); border: 1px solid var(--border); font-family: 'Fira Code', monospace; resize: vertical;"></textarea>
-                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem;">Ativos inseridos substituirão a busca padrão. Clique em REFRESH no topo para recarregar a tabela.</div>
+                <div id="manual-assets-input-container" class="manual-assets-input-container">
+                    <textarea id="manual-assets-textarea" class="manual-assets-textarea" placeholder="Cole aqui os tickers separados por vírgula ou espaço (ex: PETR4.SA, VALE3.SA)..."></textarea>
+                    <div class="manual-assets-hint">Ativos inseridos substituirão a busca padrão. Clique em REFRESH no topo para recarregar a tabela.</div>
                 </div>
             </section>
 
@@ -158,52 +158,52 @@
     </div>
 
     <!-- Settings Modal -->
-    <div id="settings-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center;">
-        <div style="background: var(--bg-surface); padding: 2rem; border: 2px solid var(--border); width: 450px; max-height: 90vh; overflow-y: auto; color: var(--text-primary); font-family: 'Fira Code', monospace; box-shadow: 0 0 20px rgba(0,0,0,0.5);">
-            <h3 style="margin-bottom: 1.5rem; text-transform: uppercase;">[ GLOBAL CONFIGURATION ]</h3>
+    <div id="settings-modal" class="settings-modal-overlay">
+        <div class="settings-modal-panel">
+            <h3>[ GLOBAL CONFIGURATION ]</h3>
             
-            <label style="display: block; margin-bottom: 0.5rem; color: var(--accent);">Default BR Stocks</label>
-            <input type="text" id="config-br-stocks" style="width: 100%; background: var(--bg-main); color: var(--text-primary); border: 1px solid var(--border); padding: 0.5rem; margin-bottom: 1rem;" placeholder="Leave empty for Index Fallback">
+            <label class="settings-field-label">Default BR Stocks</label>
+            <input type="text" id="config-br-stocks" class="settings-field-input mb-sm" placeholder="Leave empty for Index Fallback">
 
-            <label style="display: block; margin-bottom: 0.5rem; color: var(--accent);">Default US Stocks</label>
-            <input type="text" id="config-us-stocks" style="width: 100%; background: var(--bg-main); color: var(--text-primary); border: 1px solid var(--border); padding: 0.5rem; margin-bottom: 1.5rem;" placeholder="AAPL, MSFT...">
+            <label class="settings-field-label">Default US Stocks</label>
+            <input type="text" id="config-us-stocks" class="settings-field-input mb-md" placeholder="AAPL, MSFT...">
 
-            <label style="display: block; margin-bottom: 0.5rem; color: var(--accent);">Default BR FIIs</label>
-            <input type="text" id="config-br-fiis" style="width: 100%; background: var(--bg-main); color: var(--text-primary); border: 1px solid var(--border); padding: 0.5rem; margin-bottom: 1.5rem;" placeholder="MXRF11.SA...">
+            <label class="settings-field-label">Default BR FIIs</label>
+            <input type="text" id="config-br-fiis" class="settings-field-input mb-md" placeholder="MXRF11.SA...">
 
-            <label style="display: block; margin-bottom: 0.5rem; color: var(--accent);">Default US REITs</label>
-            <input type="text" id="config-us-reits" style="width: 100%; background: var(--bg-main); color: var(--text-primary); border: 1px solid var(--border); padding: 0.5rem; margin-bottom: 1.5rem;" placeholder="O, SPG...">
+            <label class="settings-field-label">Default US REITs</label>
+            <input type="text" id="config-us-reits" class="settings-field-input mb-md" placeholder="O, SPG...">
 
-            <label style="display: block; margin-bottom: 0.5rem; color: var(--accent);">Cache Expiration (Hours)</label>
-            <input type="number" id="config-cache-hours" style="width: 100%; background: var(--bg-main); color: var(--text-primary); border: 1px solid var(--border); padding: 0.5rem; margin-bottom: 1.5rem;" placeholder="24" min="1" max="720">
+            <label class="settings-field-label">Cache Expiration (Hours)</label>
+            <input type="number" id="config-cache-hours" class="settings-field-input mb-md" placeholder="24" min="1" max="720">
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+            <div class="settings-grid-2col">
                 <div>
-                    <label style="display: block; margin-bottom: 0.5rem; color: var(--accent);">CUPOM NTNB 10Y (%)</label>
-                    <input type="number" id="config-ntnb" style="width: 100%; background: var(--bg-main); color: var(--text-primary); border: 1px solid var(--border); padding: 0.5rem;" placeholder="e.g. 6.00" step="0.01">
+                    <label class="settings-field-label">CUPOM NTNB 10Y (%)</label>
+                    <input type="number" id="config-ntnb" class="settings-field-input" placeholder="e.g. 6.00" step="0.01">
                 </div>
                 <div>
-                    <label style="display: block; margin-bottom: 0.5rem; color: var(--accent);">PREMIUM SPREAD (%)</label>
-                    <input type="number" id="config-spread" style="width: 100%; background: var(--bg-main); color: var(--text-primary); border: 1px solid var(--border); padding: 0.5rem;" placeholder="e.g. 4.00" step="0.01">
+                    <label class="settings-field-label">PREMIUM SPREAD (%)</label>
+                    <input type="number" id="config-spread" class="settings-field-input" placeholder="e.g. 4.00" step="0.01">
                 </div>
                 <div>
-                    <label style="display: block; margin-bottom: 0.5rem; color: var(--accent);">IPCA 12M (%)</label>
-                    <input type="number" id="config-ipca" style="width: 100%; background: var(--bg-main); color: var(--text-primary); border: 1px solid var(--border); padding: 0.5rem;" placeholder="e.g. 4.50" step="0.01">
+                    <label class="settings-field-label">IPCA 12M (%)</label>
+                    <input type="number" id="config-ipca" class="settings-field-input" placeholder="e.g. 4.50" step="0.01">
                 </div>
                 <div>
-                    <label style="display: block; margin-bottom: 0.5rem; color: var(--accent);">TAXA SELIC (%)</label>
-                    <input type="number" id="config-selic" style="width: 100%; background: var(--bg-main); color: var(--text-primary); border: 1px solid var(--border); padding: 0.5rem;" placeholder="e.g. 10.50" step="0.01">
+                    <label class="settings-field-label">TAXA SELIC (%)</label>
+                    <input type="number" id="config-selic" class="settings-field-input" placeholder="e.g. 10.50" step="0.01">
                 </div>
             </div>
             
-            <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
-                <button id="theme-toggle-btn" class="btn" style="flex: 1; border-color: var(--border);">[ TOGGLE THEME ]</button>
-                <button id="clear-cache-btn" class="btn" style="flex: 1; border-color: var(--danger); color: var(--danger);">[ PURGE CACHE ]</button>
+            <div class="settings-actions-row">
+                <button id="theme-toggle-btn" class="btn">[ TOGGLE THEME ]</button>
+                <button id="clear-cache-btn" class="btn btn-danger-outline">[ PURGE CACHE ]</button>
             </div>
             
-            <div style="display: flex; gap: 1rem; justify-content: flex-end;">
-                <button id="settings-cancel" class="btn" style="color: var(--text-secondary); border: none;">Cancel</button>
-                <button id="settings-save" class="btn btn-primary" style="background: var(--accent); color: var(--bg-surface);">SAVE & RELOAD</button>
+            <div class="settings-footer">
+                <button id="settings-cancel" class="btn" style="border: none; color: var(--text-secondary);">Cancel</button>
+                <button id="settings-save" class="btn btn-primary btn-accent">SAVE &amp; RELOAD</button>
             </div>
         </div>
     </div>
@@ -212,6 +212,6 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-    <script src="app.js?v=50ed851d"></script>
+    <script src="app.js?v=3f4c8dcd"></script>
 </body>
 </html>

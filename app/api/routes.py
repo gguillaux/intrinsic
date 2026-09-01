@@ -6,10 +6,9 @@ from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 import asyncio
 import os
-import requests_cache
 
 from ..config import DEFAULT_BR_STOCKS, DEFAULT_US_STOCKS, DEFAULT_BR_FIIS, DEFAULT_US_REITS
-from ..services.data_service import fetch_stock_metrics, fetch_reit_metrics, update_cache_expiration
+from ..services.data_service import fetch_stock_metrics, fetch_reit_metrics, update_cache_expiration, _get_session
 from ..services.news_service import fetch_and_store_news
 from ..services.index_service import get_all_indices, get_index_composition
 from ..domain.calculations import calculate_ranking, enrich_fii_metrics
@@ -18,39 +17,6 @@ from ..models import ParsedMetricsCache
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-# --- Response Schema ---
-
-class ValuationMetricSchema(BaseModel):
-    ticker: str
-    name: Optional[str] = None
-    price: Optional[float] = None
-    market_cap: Optional[float] = None
-    p_s: Optional[float] = None
-    p_fcf: Optional[float] = None
-    pe: Optional[float] = None
-    p_a: Optional[float] = None
-    eps: Optional[float] = None
-    debt_ebit: Optional[float] = None
-    roic: Optional[float] = None
-    roe: Optional[float] = None
-    net_margin: Optional[float] = None
-    peg: Optional[float] = None
-    dividend_yield: Optional[float] = None
-    p_vpa: Optional[float] = None
-    min_52w: Optional[float] = None
-    max_52w: Optional[float] = None
-    val_12m: Optional[float] = None
-    vp_cota: Optional[float] = None
-    caixa: Optional[float] = None
-    dy_cagr: Optional[float] = None
-    val_cagr: Optional[float] = None
-    cotistas: Optional[int] = None
-    ceiling_price: Optional[float] = None
-    sharpe_ratio: Optional[float] = None
-    rank_score: Optional[float] = None
-    final_rank: Optional[int] = None
 
 
 # --- Ticker Parsing Helpers (C3: DRY) ---
@@ -67,7 +33,7 @@ def _parse_ticker_list(raw: Optional[str], defaults: List[str], append_sa: bool 
 
 async def _fetch_parallel(fetch_fn, ticker_list: List[str], **kwargs) -> List[dict]:
     """Runs a fetch function in parallel across a list of tickers."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     tasks = [loop.run_in_executor(None, lambda t=t: fetch_fn(t, **kwargs)) for t in ticker_list]
     return list(await asyncio.gather(*tasks))
 
@@ -136,8 +102,7 @@ async def get_index(index_name: str):
 @router.post("/cache/clear")
 async def clear_cache():
     try:
-        session = requests_cache.CachedSession('intrinsic_statusinvest.cache')
-        session.cache.clear()
+        _get_session().cache.clear()
         ParsedMetricsCache.delete().execute()
         logger.info("Cache cleared successfully")
         return {"status": "Cache Cleared"}

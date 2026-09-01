@@ -3,11 +3,10 @@ import requests
 import datetime
 import json
 from ..models import News
+from ..config import REQUEST_TIMEOUT
 from typing import Optional
 
 logger = logging.getLogger(__name__)
-
-REQUEST_TIMEOUT = 15  # seconds
 
 def fetch_and_store_news(target_date_str: Optional[str] = None):
     """

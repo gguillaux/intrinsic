@@ -30,14 +30,13 @@ _cache_hours: int = DEFAULT_CACHE_HOURS
 def _get_session() -> requests_cache.CachedSession:
     """Returns the thread-safe cached session singleton."""
     global _status_invest_session
-    if _status_invest_session is None:
-        with _session_lock:
-            if _status_invest_session is None:
-                _status_invest_session = requests_cache.CachedSession(
-                    'intrinsic_statusinvest.cache',
-                    expire_after=timedelta(hours=_cache_hours)
-                )
-    return _status_invest_session
+    with _session_lock:
+        if _status_invest_session is None:
+            _status_invest_session = requests_cache.CachedSession(
+                'intrinsic_statusinvest.cache',
+                expire_after=timedelta(hours=_cache_hours)
+            )
+        return _status_invest_session
 
 
 def update_cache_expiration(hours: int):
@@ -175,17 +174,15 @@ def _read_from_cache(ticker: str) -> Dict[str, Any] | None:
 
 
 def _write_to_cache(ticker: str, data: Dict[str, Any]) -> None:
-    """Saves parsed metrics to the database cache."""
+    """Saves parsed metrics to the database cache (atomic upsert)."""
     if not _is_valid_data(data):
         return
     try:
-        existing = ParsedMetricsCache.get_or_none(ParsedMetricsCache.ticker == ticker)
-        if existing:
-            existing.data = json.dumps(data)
-            existing.last_updated = datetime.datetime.now()
-            existing.save()
-        else:
-            ParsedMetricsCache.create(ticker=ticker, data=json.dumps(data))
+        ParsedMetricsCache.replace(
+            ticker=ticker,
+            data=json.dumps(data),
+            last_updated=datetime.datetime.now()
+        ).execute()
     except Exception as e:
         logger.error("Cache save failed for %s: %s", ticker, e)
 
@@ -259,17 +256,63 @@ def fetch_stock_metrics(ticker: str, is_us_reit: bool = False) -> Dict[str, Any]
     return data
 
 
-def fetch_reit_metrics(ticker: str) -> Dict[str, Any]:
-    """Fetches FII/REIT metrics from StatusInvest via HTML scraping."""
-    cached = _read_from_cache(ticker)
-    if cached:
-        return cached
+def _fetch_reit_yfinance(ticker: str, data: Dict[str, Any]) -> None:
+    """Fetches FII/REIT core metrics from yfinance (primary source)."""
+    try:
+        yf_ticker = yf.Ticker(ticker)
+        info = getattr(yf_ticker, "info", {})
+        fast_info = getattr(yf_ticker, "fast_info", None)
 
-    data = _init_empty_metrics(ticker)
+        # Price
+        if fast_info and hasattr(fast_info, 'last_price'):
+            data["price"] = fast_info.last_price
+        else:
+            data["price"] = info.get("currentPrice", info.get("regularMarketPrice"))
 
+        data["name"] = info.get("shortName", ticker)
+
+        # Dividend Yield — yfinance returns percentage for BR FIIs (e.g. 9.47)
+        dy = info.get("dividendYield")
+        if dy is not None:
+            data["dividend_yield"] = float(dy)
+
+        # P/VP (Price to Book)
+        ptb = info.get("priceToBook")
+        if ptb is not None:
+            data["p_vpa"] = round(float(ptb), 4)
+
+        # 52-week range
+        data["min_52w"] = info.get("fiftyTwoWeekLow")
+        data["max_52w"] = info.get("fiftyTwoWeekHigh")
+
+        # Val 12M — calculated from 1-year price history
+        try:
+            hist = yf_ticker.history(period="1y")
+            if hist is not None and not hist.empty and len(hist) >= 2:
+                first_close = float(hist["Close"].iloc[0])
+                last_close = float(hist["Close"].iloc[-1])
+                if first_close > 0:
+                    data["val_12m"] = round(((last_close - first_close) / first_close) * 100, 2)
+        except Exception as e:
+            logger.debug("Val 12M calculation failed for %s: %s", ticker, e)
+
+        # Book value per share (VP/Cota)
+        bv = info.get("bookValue")
+        if bv is not None:
+            data["vp_cota"] = float(bv)
+
+    except Exception as e:
+        logger.error("yfinance fetch failed for REIT %s: %s", ticker, e)
+
+
+def _fetch_reit_statusinvest_extras(ticker: str, data: Dict[str, Any]) -> None:
+    """Fallback: fetches StatusInvest-exclusive fields (dy_cagr, val_cagr, caixa, cotistas).
+
+    Non-critical — silently skips if StatusInvest is blocked or unavailable.
+    """
     try:
         statusinvest_ticker = ticker.replace(".SA", "").upper()
-        headers = {'User-Agent': 'Mozilla/5.0'}
+        headers = STATUS_INVEST_HEADERS
         categories = FII_CATEGORIES
 
         for category in categories:
@@ -280,34 +323,38 @@ def fetch_reit_metrics(ticker: str) -> Dict[str, Any]:
 
                 name_tag = soup.find('h1')
                 if name_tag and name_tag.text.strip():
-                    # StatusInvest sometimes returns 200 with an error page
                     if 'erro' in name_tag.text.lower() or 'não encontram' in name_tag.text.lower() or 'ops' in name_tag.text.lower():
                         continue
-
-                    data["name"] = name_tag.text.split('-')[-1].strip()
 
                     for title in soup.find_all('h3', class_='title'):
                         val_tag = title.find_next('strong', class_='value')
                         if val_tag:
                             label_text = title.text.strip().lower()
                             parsed_value = _parse_brazilian_currency(val_tag.text.strip())
-                            if 'valor atual' in label_text: data['price'] = parsed_value
-                            elif 'min. 52 semanas' in label_text: data['min_52w'] = parsed_value
-                            elif 'máx. 52 semanas' in label_text: data['max_52w'] = parsed_value
-                            elif 'dividend yield' in label_text or label_text.startswith('dy do '): data['dividend_yield'] = parsed_value
-                            elif 'valorização (12m)' in label_text: data['val_12m'] = parsed_value
-                            elif 'val. patrimonial p/cota' in label_text: data['vp_cota'] = parsed_value
-                            elif 'p/vp' in label_text: data['p_vpa'] = parsed_value
-                            elif 'valor em caixa' in label_text: data['caixa'] = parsed_value
-                            elif 'dy cagr (3 anos)' in label_text: data['dy_cagr'] = parsed_value
+                            # Only scrape fields that yfinance doesn't provide
+                            if 'dy cagr (3 anos)' in label_text: data['dy_cagr'] = parsed_value
                             elif 'valor cagr (3 anos)' in label_text: data['val_cagr'] = parsed_value
+                            elif 'valor em caixa' in label_text: data['caixa'] = parsed_value
                             elif 'cotistas' in label_text: data['cotistas'] = int(parsed_value) if parsed_value else None
 
-                    if data.get("price") is not None:
-                        break  # Successfully scraped this category
-
+                    break  # Found the right category page
     except Exception as e:
-        logger.error("Failed to fetch REIT metrics for %s: %s", ticker, e)
+        logger.debug("StatusInvest extras unavailable for %s: %s", ticker, e)
+
+
+def fetch_reit_metrics(ticker: str) -> Dict[str, Any]:
+    """Fetches FII/REIT metrics using yfinance (primary) with StatusInvest fallback for extras."""
+    cached = _read_from_cache(ticker)
+    if cached:
+        return cached
+
+    data = _init_empty_metrics(ticker)
+
+    # Primary source: yfinance (price, DY, P/VP, 52W, val_12m, vp_cota)
+    _fetch_reit_yfinance(ticker, data)
+
+    # Fallback: StatusInvest-exclusive fields (dy_cagr, val_cagr, caixa, cotistas)
+    _fetch_reit_statusinvest_extras(ticker, data)
 
     _write_to_cache(ticker, data)
     return data
