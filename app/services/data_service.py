@@ -71,6 +71,62 @@ def _init_empty_metrics(ticker: str) -> Dict[str, Any]:
     }
 
 
+def _populate_yfinance_fundamentals(data: Dict[str, Any], info: Dict[str, Any]) -> None:
+    """Populates fundamental metrics from yfinance info as primary data source.
+
+    This makes the app independent of StatusInvest for core metrics.
+    yfinance returns ratios/margins as decimals (e.g. 0.15 = 15%),
+    so percentage fields are multiplied by 100 to match the internal format.
+    """
+    # EPS (Earnings Per Share) — currency units, no conversion needed
+    eps = info.get('trailingEps')
+    if eps is not None:
+        data['eps'] = round(float(eps), 2)
+
+    # P/E (Price-to-Earnings) — ratio, no conversion needed
+    pe = info.get('trailingPE')
+    if pe is not None:
+        data['pe'] = round(float(pe), 2)
+
+    # PEG Ratio — ratio, no conversion needed
+    peg = info.get('pegRatio')
+    if peg is not None:
+        data['peg'] = round(float(peg), 2)
+
+    # Dividend Yield — yfinance returns as percentage (0.34 = 0.34%)
+    dy = info.get('dividendYield')
+    if dy is not None:
+        data['dividend_yield'] = round(float(dy), 2)
+
+    # P/VPA (Price to Book) — ratio, no conversion needed
+    pvpa = info.get('priceToBook')
+    if pvpa is not None:
+        data['p_vpa'] = round(float(pvpa), 4)
+
+    # Debt/EBIT — approximate as Net Debt / EBITDA
+    total_debt = info.get('totalDebt')
+    ebitda = info.get('ebitda')
+    if total_debt is not None and ebitda and ebitda > 0:
+        total_cash = info.get('totalCash', 0) or 0
+        net_debt = float(total_debt) - float(total_cash)
+        data['debt_ebit'] = round(net_debt / float(ebitda), 2)
+
+    # ROE — yfinance returns decimal (0.15 = 15%), convert to %
+    roe = info.get('returnOnEquity')
+    if roe is not None:
+        data['roe'] = round(float(roe) * 100, 2)
+
+    # ROIC — yfinance has no direct ROIC; approximate with ROA
+    roa = info.get('returnOnAssets')
+    if roa is not None:
+        data['roic'] = round(float(roa) * 100, 2)
+
+    # Net Margin — yfinance returns decimal (0.25 = 25%), convert to %
+    margin = info.get('profitMargins')
+    if margin is not None:
+        data['net_margin'] = round(float(margin) * 100, 2)
+
+
 def _parse_brazilian_currency(text: str):
     """Parses Brazilian-formatted numbers (e.g. 'R$ 1.234,56' or '12,34%') to float."""
     if not text or text == '-':
@@ -100,7 +156,8 @@ def _get_statusinvest_data(ticker: str, data: Dict[str, Any], is_br: bool = True
                     indicator_key = item.get('key')
                     indicator_value = item.get('actual')
                     if indicator_key in STATUSINVEST_INDICATOR_MAPPING:
-                        data[STATUSINVEST_INDICATOR_MAPPING[indicator_key]] = indicator_value
+                        if indicator_value is not None:
+                            data[STATUSINVEST_INDICATOR_MAPPING[indicator_key]] = indicator_value
     except Exception as e:
         logger.warning("StatusInvest fetch failed for %s: %s", ticker, e)
 
@@ -241,6 +298,10 @@ def fetch_stock_metrics(ticker: str, is_us_reit: bool = False) -> Dict[str, Any]
         except Exception as e:
             logger.warning("P/A or P/NWC calculation failed for %s: %s", ticker, e)
 
+        # Primary source for fundamentals (P/E, EPS, ROE, etc.)
+        _populate_yfinance_fundamentals(data, info)
+
+        # StatusInvest can override with its own values when available
         is_br = ticker.endswith(".SA")
         if is_br:
             _get_statusinvest_data(ticker, data, is_br=True)
