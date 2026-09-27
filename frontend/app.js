@@ -44,6 +44,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeFilters = {};
     let currentViewMode = 'table'; // 'table' or 'grid'
     let donutChartInstances = []; // Track Chart.js instances for cleanup
+    let currentController = null;
+
+    function debounce(fn, ms) {
+        let timer;
+        return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms); };
+    }
 
     const TAB_CONFIG = {
         'br-stocks': { title: 'BR Stocks', subtitle: 'Focus on Low P/FCF, EPS, low Debt, P/E, and PEG < 1', type: 'stock' },
@@ -102,7 +108,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Initialize
-    document.body.classList.add('theme-dark'); // set default theme
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    document.body.classList.add(`theme-${savedTheme}`);
 
     // Sidebar collapse toggle
     const sidebar = document.getElementById('sidebar');
@@ -164,9 +171,9 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        searchInput.addEventListener('input', (e) => {
+        searchInput.addEventListener('input', debounce((e) => {
             renderTableBody(getFilteredData(), TAB_CONFIG[currentTab].type);
-        });
+        }, 300));
 
         if (themeToggleBtn) {
             // Settings Modal UI bindings
@@ -238,9 +245,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (document.body.classList.contains('theme-dark')) {
                     document.body.classList.remove('theme-dark');
                     document.body.classList.add('theme-light');
+                    localStorage.setItem('theme', 'light');
                 } else {
                     document.body.classList.remove('theme-light');
                     document.body.classList.add('theme-dark');
+                    localStorage.setItem('theme', 'dark');
                 }
             });
         }
@@ -363,68 +372,7 @@ document.addEventListener('DOMContentLoaded', () => {
         URL.revokeObjectURL(url);
     }
 
-    function calculateRanking(data, type) {
-        if (type !== 'stock' && type !== 'reit') return;
-        
-        data.forEach(item => { item.rank_score = 0; });
-        
-        let indicators = [];
-        if (type === 'stock') {
-            indicators = [
-                { key: 'peg', filter: v => v > 0 && v <= 1, sortAsc: true, weight: 1 },
-                { key: 'p_fcf', filter: v => v > 0, sortAsc: true, weight: 1 },
-                { key: 'pe', filter: v => v > 0, sortAsc: true, weight: 1 },
-                { key: 'eps', filter: v => v > 0, sortAsc: false, weight: 1 },
-                { key: 'debt_ebit', filter: v => v > 0, sortAsc: true, weight: 1 },
-                { key: 'roic', filter: v => v > 0, sortAsc: false, weight: 1 },
-                { key: 'roe', filter: v => v > 0, sortAsc: false, weight: 1 },
-                { key: 'net_margin', filter: v => v > 0, sortAsc: false, weight: 1 },
-                { key: 'dividend_yield', filter: v => v > 0, sortAsc: false, weight: 1 }
-            ];
-        } else if (type === 'reit') {
-            indicators = [
-                { key: 'dy_cagr', filter: v => v !== null && v !== undefined && v !== '-', sortAsc: false, weight: 0.35 },
-                { key: 'sharpe_ratio', filter: v => v !== null && v !== undefined && v !== '-', sortAsc: false, weight: 0.35 },
-                { key: 'dividend_yield', filter: v => v !== null && v !== undefined && v !== '-', sortAsc: false, weight: 0.15 },
-                { key: 'p_vpa', filter: v => v !== null && v !== undefined && v !== '-', sortAsc: true, weight: 0.15 }
-            ];
-        }
-        
-        indicators.forEach(ind => {
-            let validItems = [];
-            let invalidItems = [];
-            
-            data.forEach(item => {
-                const val = item[ind.key];
-                if (val !== null && val !== undefined && ind.filter(val)) {
-                    validItems.push(item);
-                } else {
-                    invalidItems.push(item);
-                }
-            });
-            
-            validItems.sort((a, b) => {
-                let va = a[ind.key];
-                let vb = b[ind.key];
-                return ind.sortAsc ? (va - vb) : (vb - va);
-            });
-            
-            validItems.forEach((item, index) => {
-                item.rank_score += (index + 1) * ind.weight;
-            });
-            
-            const invalidPenalty = validItems.length + 1;
-            invalidItems.forEach(item => {
-                item.rank_score += invalidPenalty * ind.weight;
-            });
-        });
-        
-        let sortedByScore = [...data].sort((a, b) => a.rank_score - b.rank_score);
-        sortedByScore.forEach((item, index) => {
-            item.final_rank = index + 1;
-            item.rank_score = parseFloat(item.rank_score.toFixed(2));
-        });
-    }
+
 
     function parseNewsItems(data) {
         const KNOWN_NEWS_TYPES = [
@@ -499,6 +447,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function loadTabData(tabId) {
+        if (currentController) currentController.abort();
+        currentController = new AbortController();
+
         const config = TAB_CONFIG[tabId];
         
         pageTitle.textContent = config.title;
@@ -573,7 +524,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderTableHeaders(config.type);
             
             const endpoint = getEndpoint(tabId);
-            const response = await fetch(`${API_BASE}${endpoint}`);
+            const response = await fetch(`${API_BASE}${endpoint}`, { signal: currentController.signal });
             if (!response.ok) throw new Error("Network response was not ok");
             
             const data = await response.json();
@@ -584,11 +535,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
             currentData = data;
             
-            // Only re-rank client-side for US REITs (backend doesn't rank them).
-            // BR stocks, US stocks, and BR FIIs are already ranked by the backend.
-            if (currentTab === 'us-reits') {
-                calculateRanking(currentData, 'stock');
-            }
             if (config.type === 'stock' || (config.type === 'reit' && currentTab === 'br-fiis') || currentTab === 'us-reits') {
                 if (!currentSort.column) {
                     currentSort = { column: 'final_rank', asc: true };
@@ -599,7 +545,13 @@ document.addEventListener('DOMContentLoaded', () => {
             renderTableBody(getFilteredData(), config.type);
             applyViewMode();
         } catch (error) {
-            tableBody.innerHTML = `<tr><td colspan="10" class="bad-metric" style="text-align: center;">Error fetching data: ${error.message}</td></tr>`;
+            if (error.name === 'AbortError') return;
+            let colspan = 10;
+            if (config.type === 'stock') colspan = 15;
+            else if (config.type === 'reit' && currentTab === 'br-fiis') colspan = 17;
+            else if (config.type === 'reit') colspan = 6;
+            else if (config.type === 'news') colspan = 5;
+            tableBody.innerHTML = `<tr><td colspan="${colspan}" class="bad-metric" style="text-align: center;">Error fetching data: ${error.message}</td></tr>`;
             tableContainer.style.display = 'block';
         } finally {
             loader.style.display = 'none';
@@ -1092,20 +1044,15 @@ document.addEventListener('DOMContentLoaded', () => {
         // Persist to localStorage config
         const configKey = getConfigKeyForTab(currentTab);
         if (configKey) {
-            const remaining = currentData.map(item => {
-                // BR assets store tickers without .SA suffix
-                if (currentTab === 'br-stocks' || currentTab === 'br-fiis') return item.ticker.replace('.SA', '');
-                return item.ticker;
-            });
-            localStorage.setItem(configKey, remaining.join(','));
-        }
-
-        // Recalculate ranking
-        const config = TAB_CONFIG[currentTab];
-        if (config.type === 'stock' || currentTab === 'us-reits') {
-            calculateRanking(currentData, currentTab === 'us-reits' ? 'stock' : config.type);
-        } else if (config.type === 'reit' && currentTab === 'br-fiis') {
-            calculateRanking(currentData, config.type);
+            const hasExisting = localStorage.getItem(configKey);
+            if (hasExisting) {
+                const remaining = currentData.map(item => {
+                    // BR assets store tickers without .SA suffix
+                    if (currentTab === 'br-stocks' || currentTab === 'br-fiis') return item.ticker.replace('.SA', '');
+                    return item.ticker;
+                });
+                localStorage.setItem(configKey, remaining.join(','));
+            }
         }
 
         // Re-render grid
@@ -1149,6 +1096,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const globalTerm = searchInput.value.trim().toLowerCase();
         
         return currentData.filter(item => {
+            // 0. News Type Filter
+            if (currentNewsType && TAB_CONFIG[currentTab].type === 'news') {
+                const itemType = (item.parsedType || '').toLowerCase();
+                if (itemType !== currentNewsType) return false;
+            }
+
             // 1. Global Search Filter
             if (globalTerm) {
                 let searchStr = '';
@@ -1224,11 +1177,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function attachFilterListeners() {
         const filterInputs = document.querySelectorAll('.header-filter-input');
         filterInputs.forEach(input => {
-            input.addEventListener('input', (e) => {
+            input.addEventListener('input', debounce((e) => {
                 const col = input.dataset.col;
                 activeFilters[col] = input.value;
                 renderTableBody(getFilteredData(), TAB_CONFIG[currentTab].type);
-            });
+            }, 300));
             input.addEventListener('click', (e) => e.stopPropagation());
             input.addEventListener('mousedown', (e) => e.stopPropagation());
         });
@@ -1408,9 +1361,15 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const formatCurrency = (val) => val != null ? val.toLocaleString('en-US', { style: 'currency', currency: 'USD' }) : '-';
+        const formatCurrency = (val) => {
+            if (val == null) return '-';
+            const isBr = currentTab === 'br-stocks' || currentTab === 'br-fiis';
+            const loc = isBr ? 'pt-BR' : 'en-US';
+            const cur = isBr ? 'BRL' : 'USD';
+            return val.toLocaleString(loc, { style: 'currency', currency: cur });
+        };
         const formatNumber = (val, dec=2) => val != null ? val.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }) : '-';
-        const formatPercent = (val) => val != null ? `${val.toFixed(2)}%` : '-';
+        const formatPercent = (val) => typeof val === 'number' ? `${val.toFixed(2)}%` : '-';
         const formatLarge = (val) => {
             if (val == null) return '-';
             if (val >= 1e9) return `$${(val / 1e9).toFixed(2)}B`;

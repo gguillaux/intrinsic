@@ -17,13 +17,23 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+import asyncio
+
+async def _startup_data_fetch():
+    loop = asyncio.get_running_loop()
+    try:
+        await loop.run_in_executor(None, fetch_and_store_indices)
+        await loop.run_in_executor(None, fetch_and_store_news)
+        logger.info("Startup background tasks completed.")
+    except Exception as e:
+        logger.error("Startup background fetch failed: %s", e)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     logger.info("Initializing database...")
     init_db()
-    fetch_and_store_indices()
-    fetch_and_store_news()
+    asyncio.create_task(_startup_data_fetch())
     logger.info("Application startup complete.")
     yield
     # Shutdown
