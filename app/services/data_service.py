@@ -13,7 +13,6 @@ from ..domain.models import StockMetrics
 from ..providers import (
     MetricsProvider,
     YFinanceProvider,
-    StatusInvestProvider,
     get_session as _get_session_impl,
     update_cache_expiration as _update_cache_expiration_impl,
     populate_fundamentals,
@@ -25,7 +24,6 @@ logger = logging.getLogger(__name__)
 _cache_hours: int = DEFAULT_CACHE_HOURS
 _providers: List[MetricsProvider] = [
     YFinanceProvider(),
-    StatusInvestProvider(),
 ]
 
 

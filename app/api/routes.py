@@ -1,6 +1,6 @@
 import logging
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Query, Body
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from ..adapters.factories import DataProviderFactory, ValuationEngineFactory

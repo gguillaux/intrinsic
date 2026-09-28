@@ -1,13 +1,24 @@
 .venv/
+venv/
 __pycache__/
+.pytest_cache/
 *.py[cod]
 *$py.class
+*.egg-info/
+
+# Databases & Caches
 *.sqlite
-.env
-venv/
 *.db
 *.db-shm
 *.db-wal
 *.db-journal
 *.cache
+
+# Secrets & Logs
+.env
 *.log
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store

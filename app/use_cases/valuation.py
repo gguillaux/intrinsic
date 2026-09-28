@@ -1,10 +1,6 @@
 import numpy as np
-from typing import List, Tuple
 from ..core.entities import Stock, ScenarioResult, ValuationResult
 from ..core.interfaces import IValuationStrategy
-
-def calculate_wacc(cost_of_equity: float, cost_of_debt: float, weight_equity: float, weight_debt: float, tax_rate: float) -> float:
-    return (weight_equity * cost_of_equity) + (weight_debt * cost_of_debt * (1 - tax_rate))
 
 def _generate_monte_carlo_distribution(mean: float, std_dev: float, iterations: int = 10000) -> np.ndarray:
     return np.random.normal(mean, std_dev, iterations)

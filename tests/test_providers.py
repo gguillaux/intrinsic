@@ -3,18 +3,16 @@ Tests for Strategy pattern provider infrastructure.
 """
 from app.providers.base import MetricsProvider
 from app.providers.yfinance_provider import YFinanceProvider, resolve_price
-from app.providers.statusinvest_provider import StatusInvestProvider, parse_brazilian_currency
 from app.services.data_service import get_providers, register_provider, _init_empty_metrics
 
 
 def test_provider_registration_and_ordering():
     providers = get_providers()
-    assert len(providers) >= 2
+    assert len(providers) >= 1
     priorities = [p.priority for p in providers]
     assert priorities == sorted(priorities)
     names = [p.name for p in providers]
     assert "yfinance" in names
-    assert "statusinvest" in names
 
 
 def test_custom_provider_can_be_registered():
@@ -51,10 +49,3 @@ def test_resolve_price_helper():
     assert resolve_price({"currentPrice": 99.0}, None) == 99.0
     assert resolve_price({"regularMarketPrice": 88.0}, None) == 88.0
     assert resolve_price({}, None) is None
-
-
-def test_parse_brazilian_currency():
-    assert parse_brazilian_currency("R$ 1.234,56") == 1234.56
-    assert parse_brazilian_currency("12,34%") == 12.34
-    assert parse_brazilian_currency("-") is None
-    assert parse_brazilian_currency("") is None

@@ -4,7 +4,6 @@ from typing import List, Optional
 from ..core.interfaces import IStockDataProvider
 from ..core.entities import FinancialStatement
 from .database import get_cached_fundamentals, set_cached_fundamentals
-import json
 
 # Try importing specialized libraries (ignoring errors if not installed in sandbox)
 try:
