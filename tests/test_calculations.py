@@ -3,8 +3,10 @@ import pytest
 from app.domain.calculations import (
     compute_ceiling_price,
     compute_sharpe_ratio,
+    compute_total_return_12m,
     calculate_ranking,
     enrich_fii_metrics,
+    FII_MIN_DAILY_LIQUIDITY,
 )
 
 
@@ -27,25 +29,46 @@ class TestCeilingPrice:
         assert compute_ceiling_price(price=100.0, dividend_yield=8.0, ntnb_rate=0.0, spread=0.0) is None
 
 
+class TestTotalReturn:
+    def test_basic_total_return(self):
+        # 12m price appreciation 5.5% + dividend yield 8.5% = 14.0%
+        assert compute_total_return_12m(val_12m=5.5, dividend_yield=8.5) == 14.0
+
+    def test_negative_price_return(self):
+        # Price dropped -10%, but DY was 8% -> net -2%
+        assert compute_total_return_12m(val_12m=-10.0, dividend_yield=8.0) == -2.0
+
+    def test_none_val_returns_none(self):
+        assert compute_total_return_12m(val_12m=None, dividend_yield=8.0) is None
+
+    def test_none_dy_treated_as_zero(self):
+        assert compute_total_return_12m(val_12m=5.0, dividend_yield=None) == 5.0
+
+
 class TestSharpeRatio:
     def test_basic_positive_sharpe(self):
-        result = compute_sharpe_ratio(min_52w=80.0, max_52w=120.0, val_cagr=20.0, selic_rate=10.0)
+        result = compute_sharpe_ratio(min_52w=80.0, max_52w=120.0, annual_return=20.0, selic_rate=10.0)
         assert result is not None
         assert result > 0  # 20% return vs 10% risk-free → positive
 
     def test_negative_sharpe(self):
-        result = compute_sharpe_ratio(min_52w=80.0, max_52w=120.0, val_cagr=5.0, selic_rate=10.0)
+        result = compute_sharpe_ratio(min_52w=80.0, max_52w=120.0, annual_return=5.0, selic_rate=10.0)
         assert result is not None
         assert result < 0  # 5% return vs 10% risk-free → negative
 
+    def test_val_cagr_backward_compatibility(self):
+        result = compute_sharpe_ratio(min_52w=80.0, max_52w=120.0, val_cagr=20.0, selic_rate=10.0)
+        assert result is not None
+        assert result > 0
+
     def test_none_min_returns_none(self):
-        assert compute_sharpe_ratio(min_52w=None, max_52w=120.0, val_cagr=20.0, selic_rate=10.0) is None
+        assert compute_sharpe_ratio(min_52w=None, max_52w=120.0, annual_return=20.0, selic_rate=10.0) is None
 
     def test_zero_min_returns_none(self):
-        assert compute_sharpe_ratio(min_52w=0.0, max_52w=120.0, val_cagr=20.0, selic_rate=10.0) is None
+        assert compute_sharpe_ratio(min_52w=0.0, max_52w=120.0, annual_return=20.0, selic_rate=10.0) is None
 
-    def test_none_val_cagr_returns_none(self):
-        assert compute_sharpe_ratio(min_52w=80.0, max_52w=120.0, val_cagr=None, selic_rate=10.0) is None
+    def test_none_annual_return_returns_none(self):
+        assert compute_sharpe_ratio(min_52w=80.0, max_52w=120.0, annual_return=None, selic_rate=10.0) is None
 
 
 class TestRanking:
@@ -56,7 +79,7 @@ class TestRanking:
             {"ticker": "C", "peg": 0.3, "p_fcf": 8,  "pe": 6,  "eps": 7, "debt_ebit": 1, "roic": 25, "roe": 30, "net_margin": 20, "dividend_yield": 8},
         ]
 
-    def test_ranking_assigns_all_fields(self):
+    def test_stock_ranking_assigns_all_fields(self):
         data = self._make_stocks()
         result = calculate_ranking(data, 'stock')
         for item in result:
@@ -69,6 +92,16 @@ class TestRanking:
         ranked = {item['ticker']: item['final_rank'] for item in result}
         # Stock C has best values across all indicators
         assert ranked['C'] == 1
+
+    def test_fii_ranking_prioritizes_ffo_and_pvp(self):
+        fiis = [
+            {"ticker": "FII_EXPENSIVE", "ffo_yield": 5.0, "p_vpa": 1.3, "sharpe_ratio": 0.1, "dy_cagr": 2.0, "dividend_yield": 6.0},
+            {"ticker": "FII_VALUE",     "ffo_yield": 11.0, "p_vpa": 0.85, "sharpe_ratio": 0.8, "dy_cagr": 8.0, "dividend_yield": 10.0},
+        ]
+        result = calculate_ranking(fiis, 'reit')
+        ranked = {item['ticker']: item['final_rank'] for item in result}
+        assert ranked["FII_VALUE"] == 1
+        assert ranked["FII_EXPENSIVE"] == 2
 
     def test_ranking_handles_null_values(self):
         data = [
@@ -89,13 +122,43 @@ class TestRanking:
 class TestEnrichFiiMetrics:
     def test_enrichment_adds_computed_fields(self):
         data = [
-            {"ticker": "FII1", "price": 100, "dividend_yield": 8, "min_52w": 80, "max_52w": 120, "val_cagr": 15, "p_vpa": 0.9, "dy_cagr": 5},
-            {"ticker": "FII2", "price": 50,  "dividend_yield": 10, "min_52w": 40, "max_52w": 60, "val_cagr": 20, "p_vpa": 1.1, "dy_cagr": 8},
+            {
+                "ticker": "FII1", "price": 100.0, "dividend_yield": 8.0,
+                "val_12m": 5.0, "min_52w": 80.0, "max_52w": 120.0,
+                "p_vpa": 0.9, "ffo_yield": 7.5, "dy_cagr": 5.0, "liquidez": 2_000_000.0
+            },
+            {
+                "ticker": "FII2", "price": 50.0, "dividend_yield": 10.0,
+                "val_12m": -2.0, "min_52w": 40.0, "max_52w": 60.0,
+                "p_vpa": 1.1, "ffo_yield": 9.0, "dy_cagr": 8.0, "liquidez": 1_500_000.0
+            },
         ]
         result = enrich_fii_metrics(data, ntnb_rate=6.0, spread=4.0, selic_rate=10.5)
         for item in result:
             assert 'ceiling_price' in item
+            assert 'total_return_12m' in item
             assert 'sharpe_ratio' in item
             assert 'final_rank' in item
             assert item['ceiling_price'] is not None
+            assert item['total_return_12m'] is not None
             assert item['sharpe_ratio'] is not None
+            assert item['final_rank'] is not None
+
+    def test_illiquid_fii_is_excluded_from_ranking(self):
+        data = [
+            {
+                "ticker": "LIQUID", "price": 100.0, "dividend_yield": 9.0,
+                "val_12m": 6.0, "min_52w": 90.0, "max_52w": 110.0,
+                "p_vpa": 0.95, "ffo_yield": 8.5, "dy_cagr": 6.0, "liquidez": 1_000_000.0
+            },
+            {
+                "ticker": "ILLIQUID", "price": 80.0, "dividend_yield": 12.0,
+                "val_12m": 20.0, "min_52w": 70.0, "max_52w": 90.0,
+                "p_vpa": 0.80, "ffo_yield": 11.0, "dy_cagr": 10.0, "liquidez": 50_000.0 # < 500k threshold
+            },
+        ]
+        result = enrich_fii_metrics(data, ntnb_rate=6.0, spread=4.0, selic_rate=10.5)
+        by_ticker = {item['ticker']: item for item in result}
+        assert by_ticker["LIQUID"]["final_rank"] == 1
+        assert by_ticker["ILLIQUID"]["final_rank"] is None
+        assert by_ticker["ILLIQUID"]["rank_score"] is None

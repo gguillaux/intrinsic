@@ -26,12 +26,19 @@ class StockMetrics:
     min_52w: Optional[float] = None
     max_52w: Optional[float] = None
     val_12m: Optional[float] = None
+    # FII-specific (Fundamentus)
+    segmento: Optional[str] = None
     vp_cota: Optional[float] = None
-    caixa: Optional[float] = None
-    dy_cagr: Optional[float] = None
-    val_cagr: Optional[float] = None
-    cotistas: Optional[int] = None
+    ffo_yield: Optional[float] = None
+    ffo_cota: Optional[float] = None
+    ffo_payout: Optional[float] = None      # Rend. distribuído / FFO (12m), %
+    liquidez: Optional[float] = None        # Average daily traded volume (R$, 2 months)
+    cap_rate: Optional[float] = None
+    vacancia: Optional[float] = None
+    caixa: Optional[float] = None           # Cash as % of total assets
+    dy_cagr: Optional[float] = None         # Dividend-per-share CAGR 3y, %
     # Computed / ranking fields
+    total_return_12m: Optional[float] = None
     rank_score: Optional[float] = None
     final_rank: Optional[int] = None
     ceiling_price: Optional[float] = None

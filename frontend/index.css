@@ -404,6 +404,11 @@ tbody tr:hover .name-sub {
     color: var(--success);
 }
 
+.warning-metric {
+    color: var(--c-yellow);
+    font-weight: 700;
+}
+
 .bad-metric {
     color: var(--danger);
 }

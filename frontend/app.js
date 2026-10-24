@@ -290,7 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
             headers = ["Rank", "Ticker", "Name", "Price", "PEG", "P/FCF", "P/E", "P/A", "EPS", "Debt/EBIT", "ROIC (%)", "ROE (%)", "Net Margin (%)", "Dividend Yield (%)", "Score"];
         } else if (type === 'reit') {
             if (currentTab === 'br-fiis') {
-                headers = ["Rank", "Ticker", "Name", "Price", "Ceiling Price", "Dividend Yield (%)", "P/VP", "DY CAGR (3y) (%)", "Min 52W", "Max 52W", "Val. (12M) (%)", "VP/Cota", "Caixa (%)", "Val. CAGR (3y) (%)", "Cotistas", "Sharpe Ratio", "Score"];
+                headers = ["Rank", "Ticker", "Name", "Segmento", "Price", "Ceiling Price", "Dividend Yield (%)", "FFO Yield (%)", "P/VP", "Div. CAGR (3y) (%)", "Min 52W", "Max 52W", "Val. (12M) (%)", "VP/Cota", "Liquidez (R$)", "Vacância (%)", "Sharpe Ratio", "Score"];
             } else {
                 headers = ["Ticker", "Name", "Price", "Dividend Yield (%)", "P/VPA", "P/A"];
             }
@@ -335,22 +335,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 row.push(escapeCSV(item.ticker));
                 row.push(escapeCSV(nameSub));
-                row.push(escapeCSV(item.price));
                 if (currentTab === 'br-fiis') {
+                    row.push(escapeCSV(item.segmento));
+                    row.push(escapeCSV(item.price));
                     row.push(escapeCSV(item.ceiling_price));
                     row.push(escapeCSV(item.dividend_yield));
+                    row.push(escapeCSV(item.ffo_yield));
                     row.push(escapeCSV(item.p_vpa));
                     row.push(escapeCSV(item.dy_cagr));
                     row.push(escapeCSV(item.min_52w));
                     row.push(escapeCSV(item.max_52w));
                     row.push(escapeCSV(item.val_12m));
                     row.push(escapeCSV(item.vp_cota));
-                    row.push(escapeCSV(item.caixa));
-                    row.push(escapeCSV(item.val_cagr));
-                    row.push(escapeCSV(item.cotistas));
+                    row.push(escapeCSV(item.liquidez));
+                    row.push(escapeCSV(item.vacancia));
                     row.push(escapeCSV(item.sharpe_ratio));
                     row.push(escapeCSV(item.rank_score));
                 } else {
+                    row.push(escapeCSV(item.price));
                     row.push(escapeCSV(item.dividend_yield));
                     row.push(escapeCSV(item.p_vpa));
                     row.push(escapeCSV(item.p_a));
@@ -605,15 +607,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const pvpValClass = item.p_vpa != null ? (item.p_vpa > 0 && item.p_vpa < 1.0 ? 'deep-value' : (item.p_vpa > 1.2 ? 'overvalued' : '')) : '';
             const dyValClass = item.dividend_yield != null ? (item.dividend_yield > 6 ? 'deep-value' : '') : '';
+            const ffoValClass = item.ffo_yield != null ? (item.ffo_yield > 6 ? 'deep-value' : (item.ffo_yield < 0 ? 'overvalued' : '')) : '';
             const dyCagrClass = item.dy_cagr != null ? (item.dy_cagr > 0 ? 'deep-value' : (item.dy_cagr < 0 ? 'overvalued' : '')) : '';
             const sharpeClass = item.sharpe_ratio != null ? (item.sharpe_ratio > 0 ? 'deep-value' : 'overvalued') : '';
 
             const pvpDisplay = item.p_vpa != null ? `${item.p_vpa.toFixed(2)}x` : '-';
             const dyDisplay = item.dividend_yield != null ? `${item.dividend_yield.toFixed(2)}%` : '-';
+            const ffoDisplay = item.ffo_yield != null ? `${item.ffo_yield.toFixed(2)}%` : '-';
             const dyCagrDisplay = item.dy_cagr != null ? `${item.dy_cagr.toFixed(2)}%` : '-';
             const sharpeDisplay = item.sharpe_ratio != null ? `${item.sharpe_ratio.toFixed(2)}` : '-';
             const ceilingDisplay = item.ceiling_price != null ? `R$ ${item.ceiling_price.toFixed(2)}` : '-';
-            const name = item.name ? escapeHTML(item.name) : 'Unknown';
+            let name = item.name ? escapeHTML(item.name) : 'Unknown';
+            if (item.segmento) {
+                name += ` • ${escapeHTML(item.segmento)}`;
+            }
 
             let rankBadge = '';
             if (item.final_rank) {
@@ -655,7 +662,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span class="valuation-metric-value ${dyValClass}">${dyDisplay}</span>
                             </div>
                             <div class="valuation-metric-row">
-                                <span class="valuation-metric-label">DY CAGR 3Y</span>
+                                <span class="valuation-metric-label">FFO Yield</span>
+                                <span class="valuation-metric-value ${ffoValClass}">${ffoDisplay}</span>
+                            </div>
+                            <div class="valuation-metric-row">
+                                <span class="valuation-metric-label">Div CAGR 3Y</span>
                                 <span class="valuation-metric-value ${dyCagrClass}">${dyCagrDisplay}</span>
                             </div>
                             <div class="valuation-metric-row">
@@ -669,7 +680,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </div>
                     <div class="valuation-card-legend">
-                        <span class="valuation-legend-item"><span class="valuation-legend-dot" style="background:#22c55e"></span> DY CAGR</span>
+                        <span class="valuation-legend-item"><span class="valuation-legend-dot" style="background:#22c55e"></span> Div CAGR</span>
                         <span class="valuation-legend-item"><span class="valuation-legend-dot" style="background:#f59e0b"></span> Div Yield</span>
                         <span class="valuation-legend-item"><span class="valuation-legend-dot" style="background:#3b82f6"></span> Sharpe</span>
                         <span class="valuation-legend-item"><span class="valuation-legend-dot" style="background:#c084fc"></span> P/VP</span>
@@ -1242,15 +1253,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     <th data-sort="price">Price${getIcon('price')}</th>
                     <th data-sort="ceiling_price">Ceiling Price${getIcon('ceiling_price')}</th>
                     <th data-sort="dividend_yield">Div. Yield${getIcon('dividend_yield')}</th>
+                    <th data-sort="ffo_yield">FFO Yield${getIcon('ffo_yield')}</th>
                     <th data-sort="p_vpa">P/VP${getIcon('p_vpa')}</th>
-                    <th data-sort="dy_cagr">DY CAGR(3y)${getIcon('dy_cagr')}</th>
+                    <th data-sort="dy_cagr">Div. CAGR(3y)${getIcon('dy_cagr')}</th>
                     <th data-sort="min_52w">Min 52W${getIcon('min_52w')}</th>
                     <th data-sort="max_52w">Max 52W${getIcon('max_52w')}</th>
                     <th data-sort="val_12m">Val.(12M)${getIcon('val_12m')}</th>
                     <th data-sort="vp_cota">VP/Cota${getIcon('vp_cota')}</th>
-                    <th data-sort="caixa">Caixa${getIcon('caixa')}</th>
-                    <th data-sort="val_cagr">Val. CAGR(3y)${getIcon('val_cagr')}</th>
-                    <th data-sort="cotistas">Cotistas${getIcon('cotistas')}</th>
+                    <th data-sort="liquidez">Liquidez${getIcon('liquidez')}</th>
+                    <th data-sort="vacancia">Vacância${getIcon('vacancia')}</th>
                     <th data-sort="sharpe_ratio">Sharpe Ratio${getIcon('sharpe_ratio')}</th>
                     <th data-sort="rank_score">Score${getIcon('rank_score')}</th>
                     <th>Links</th>
@@ -1262,15 +1273,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     <th>${getFilterInput('price')}</th>
                     <th>${getFilterInput('ceiling_price')}</th>
                     <th>${getFilterInput('dividend_yield')}</th>
+                    <th>${getFilterInput('ffo_yield')}</th>
                     <th>${getFilterInput('p_vpa')}</th>
                     <th>${getFilterInput('dy_cagr')}</th>
                     <th>${getFilterInput('min_52w')}</th>
                     <th>${getFilterInput('max_52w')}</th>
                     <th>${getFilterInput('val_12m')}</th>
                     <th>${getFilterInput('vp_cota')}</th>
-                    <th>${getFilterInput('caixa')}</th>
-                    <th>${getFilterInput('val_cagr')}</th>
-                    <th>${getFilterInput('cotistas')}</th>
+                    <th>${getFilterInput('liquidez')}</th>
+                    <th>${getFilterInput('vacancia')}</th>
                     <th>${getFilterInput('sharpe_ratio')}</th>
                     <th>${getFilterInput('rank_score')}</th>
                     <th></th>
@@ -1376,6 +1387,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (val >= 1e6) return `$${(val / 1e6).toFixed(2)}M`;
             return formatCurrency(val);
         };
+        const formatLiquidity = (val) => {
+            if (val == null) return '-';
+            const isBr = currentTab === 'br-stocks' || currentTab === 'br-fiis';
+            if (isBr) {
+                return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+            }
+            return formatLarge(val);
+        };
 
         const rows = data.map(item => {
             if (type === 'news') {
@@ -1389,7 +1408,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Normal stock/reit parsing
-            const nameSub = escapeHTML(item.name ? item.name : 'Unknown');
+            let nameSub = escapeHTML(item.name ? item.name : 'Unknown');
+            if (currentTab === 'br-fiis' && item.segmento) {
+                nameSub += ` • ${escapeHTML(item.segmento)}`;
+            }
             let rowHTML = "";
 
             if (type === 'stock') {
@@ -1459,24 +1481,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td style="${priceStyle}">${formatCurrency(item.price)}</td>
                 `;
                 if (currentTab === 'br-fiis') {
-                    const dyClass = (item.dividend_yield > 6) ? 'good-metric' : '';
+                    const isDyExceedingFfo = (item.dividend_yield != null && item.ffo_yield != null && item.ffo_yield > 0 && item.dividend_yield > (item.ffo_yield * 1.1));
+                    let dyClass = '';
+                    let dyTitle = '';
+                    if (isDyExceedingFfo) {
+                        dyClass = 'warning-metric';
+                        dyTitle = item.ffo_payout ? `Atenção: DY > FFO Yield (Payout: ${item.ffo_payout}%)` : 'Atenção: Dividend Yield maior que a geração de FFO';
+                    } else if (item.dividend_yield > 6) {
+                        dyClass = 'good-metric';
+                    }
+
+                    const ffoClass = (item.ffo_yield != null && item.ffo_yield > 6) ? 'good-metric' : (item.ffo_yield != null && item.ffo_yield < 0 ? 'bad-metric' : '');
                     const pVpaClass = (item.p_vpa < 1 && item.p_vpa > 0) ? 'good-metric' : (item.p_vpa > 1.2 ? 'bad-metric' : '');
                     const colorVal12m = item.val_12m > 0 ? "good-metric" : (item.val_12m < 0 ? "bad-metric" : "");
 
                     rowHTML += `
                         <td>${item.ceiling_price !== null && item.ceiling_price !== undefined ? formatCurrency(item.ceiling_price) : '-'}</td>
-                        <td class="${dyClass}">${formatPercent(item.dividend_yield)}</td>
+                        <td class="${dyClass}" ${dyTitle ? `title="${dyTitle}"` : ''}>${formatPercent(item.dividend_yield)}</td>
+                        <td class="${ffoClass}">${formatPercent(item.ffo_yield)}</td>
                         <td class="${pVpaClass}">${formatNumber(item.p_vpa)}</td>
                         <td class="${item.dy_cagr > 0 ? 'good-metric' : (item.dy_cagr < 0 ? 'bad-metric' : '')}">${formatPercent(item.dy_cagr)}</td>
                         <td>${item.min_52w !== null && item.min_52w !== undefined ? formatCurrency(item.min_52w) : '-'}</td>
                         <td>${item.max_52w !== null && item.max_52w !== undefined ? formatCurrency(item.max_52w) : '-'}</td>
                         <td class="${colorVal12m}">${formatPercent(item.val_12m)}</td>
                         <td>${item.vp_cota !== null && item.vp_cota !== undefined ? formatCurrency(item.vp_cota) : '-'}</td>
-                        <td>${item.caixa !== null && item.caixa !== undefined ? formatPercent(item.caixa) : '-'}</td>
-                        <td class="${item.val_cagr > 0 ? 'good-metric' : (item.val_cagr < 0 ? 'bad-metric' : '')}">${formatPercent(item.val_cagr)}</td>
-                        <td>${item.cotistas !== null && item.cotistas !== undefined ? item.cotistas.toLocaleString('pt-BR') : '-'}</td>
+                        <td>${formatLiquidity(item.liquidez)}</td>
+                        <td>${item.vacancia !== null && item.vacancia !== undefined ? formatPercent(item.vacancia) : '-'}</td>
                         <td class="${item.sharpe_ratio !== null ? (item.sharpe_ratio > 0 ? 'good-metric' : 'bad-metric') : ''}">${item.sharpe_ratio !== null ? formatNumber(item.sharpe_ratio) : '-'}</td>
-                        <td>${item.rank_score}</td>
+                        <td>${item.rank_score !== null && item.rank_score !== undefined ? item.rank_score : '-'}</td>
                         ${getExternalLinksHTML(item.ticker)}
                     `;
                 } else {

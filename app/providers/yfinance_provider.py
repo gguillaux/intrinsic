@@ -4,6 +4,7 @@ YFinance data provider strategy implementation.
 import logging
 from typing import Dict, Any, Optional
 
+import pandas as pd
 import yfinance as yf
 
 from .base import MetricsProvider
@@ -175,22 +176,74 @@ class YFinanceProvider(MetricsProvider):
             if ptb is not None:
                 data["p_vpa"] = round(float(ptb), 4)
 
-            data["min_52w"] = info.get("fiftyTwoWeekLow")
-            data["max_52w"] = info.get("fiftyTwoWeekHigh")
-
-            try:
-                hist = yf_ticker.history(period="1y")
-                if hist is not None and not hist.empty and len(hist) >= 2:
-                    first_close = float(hist["Close"].iloc[0])
-                    last_close = float(hist["Close"].iloc[-1])
-                    if first_close > 0:
-                        data["val_12m"] = round(((last_close - first_close) / first_close) * 100, 2)
-            except Exception as e:
-                logger.debug("Val 12M calculation failed for %s: %s", ticker, e)
-
             bv = info.get("bookValue")
             if bv is not None:
                 data["vp_cota"] = float(bv)
 
+            # 52w range and 12M change from a CLEANED price series:
+            # Yahoo's B3 FII data often contains zero/corrupted ticks.
+            try:
+                hist = yf_ticker.history(period="1y")
+                closes = clean_price_series(hist["Close"]) if hist is not None and not hist.empty else None
+                if closes is not None and len(closes) >= 2:
+                    data["min_52w"] = round(float(closes.min()), 2)
+                    data["max_52w"] = round(float(closes.max()), 2)
+                    first_close, last_close = float(closes.iloc[0]), float(closes.iloc[-1])
+                    if first_close > 0:
+                        data["val_12m"] = round(((last_close - first_close) / first_close) * 100, 2)
+            except Exception as e:
+                logger.debug("Price history failed for %s: %s", ticker, e)
+
+            # Dividend-per-share growth (3y CAGR of trailing-12-month distributions)
+            try:
+                cagr = compute_dividend_cagr(yf_ticker.dividends, years=3)
+                if cagr is not None:
+                    data["dy_cagr"] = cagr
+            except Exception as e:
+                logger.debug("Dividend CAGR failed for %s: %s", ticker, e)
+
         except Exception as e:
             logger.error("YFinanceProvider.fetch_reit failed for %s: %s", ticker, e)
+
+
+def clean_price_series(closes: "pd.Series") -> Optional["pd.Series"]:
+    """Drops non-positive closes and spikes deviating >50% from the rolling median."""
+    if closes is None:
+        return None
+    s = closes.dropna()
+    s = s[s > 0]
+    if len(s) < 3:
+        return s
+    median = s.rolling(window=11, center=True, min_periods=1).median()
+    ratio = s / median
+    return s[(ratio > 0.5) & (ratio < 1.5)]
+
+
+def compute_dividend_cagr(
+    dividends: "pd.Series", years: int = 3, now: Optional[pd.Timestamp] = None
+) -> Optional[float]:
+    """
+    CAGR (%) of trailing-12-month dividends per share: TTM today vs TTM `years` ago.
+
+    Returns None when history is insufficient or the base period paid nothing.
+    """
+    if dividends is None or len(dividends) == 0:
+        return None
+    s = dividends.dropna()
+    s = s[s > 0]
+    if s.empty:
+        return None
+
+    end = now if now is not None else pd.Timestamp.now(tz=s.index.tz)
+    one_year = pd.DateOffset(years=1)
+    past_end = end - pd.DateOffset(years=years)
+
+    if s.index.min() > past_end - one_year + pd.DateOffset(months=1):
+        return None  # not enough history
+
+    ttm_now = float(s[(s.index > end - one_year) & (s.index <= end)].sum())
+    ttm_past = float(s[(s.index > past_end - one_year) & (s.index <= past_end)].sum())
+    if ttm_past <= 0 or ttm_now <= 0:
+        return None
+    return round(((ttm_now / ttm_past) ** (1 / years) - 1) * 100, 2)
+

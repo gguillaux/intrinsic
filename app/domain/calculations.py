@@ -37,13 +37,30 @@ def compute_ceiling_price(
     return (price * dividend_yield) / required_yield
 
 
+# --- Total Return ---
+
+def compute_total_return_12m(
+    val_12m: Optional[float],
+    dividend_yield: Optional[float]
+) -> Optional[float]:
+    """
+    12-month total return of a FII holder (%): price change + distributions yield.
+
+    Returns None when the price change is unknown. A missing DY counts as 0.
+    """
+    if val_12m is None:
+        return None
+    return round(val_12m + (dividend_yield or 0.0), 2)
+
+
 # --- Sharpe Ratio (Parkinson Volatility) ---
 
 def compute_sharpe_ratio(
     min_52w: Optional[float],
     max_52w: Optional[float],
-    val_cagr: Optional[float],
-    selic_rate: float
+    annual_return: Optional[float] = None,
+    selic_rate: float = 10.5,
+    **kwargs: Any
 ) -> Optional[float]:
     """
     Computes the Sharpe Ratio using Parkinson's High-Low volatility estimator.
@@ -54,13 +71,17 @@ def compute_sharpe_ratio(
     Args:
         min_52w: 52-week low price.
         max_52w: 52-week high price.
-        val_cagr: Valorization CAGR 3y (as percentage, e.g. 12.5).
+        annual_return: Annual return (as percentage, e.g. 12.5). For FIIs this is
+            the 12-month total return (price change + dividend yield).
         selic_rate: Selic rate (as percentage, e.g. 10.5).
 
     Returns:
         The Sharpe Ratio, or None if inputs are insufficient.
     """
-    if not min_52w or not max_52w or min_52w <= 0 or val_cagr is None:
+    if annual_return is None and "val_cagr" in kwargs:
+        annual_return = kwargs["val_cagr"]
+
+    if not min_52w or not max_52w or min_52w <= 0 or annual_return is None:
         return None
 
     ln_hl = math.log(max_52w / min_52w)
@@ -69,7 +90,7 @@ def compute_sharpe_ratio(
     if parkinson_volatility <= 0:
         return None
 
-    return_decimal = val_cagr / 100
+    return_decimal = annual_return / 100
     selic_decimal = selic_rate / 100
 
     return (return_decimal - selic_decimal) / parkinson_volatility
@@ -90,13 +111,19 @@ STOCK_RANKING_INDICATORS = [
     {"key": "dividend_yield", "filter": lambda v: v is not None and v > 0,            "asc": False, "weight": 1.0},
 ]
 
-# FII ranking: DY CAGR and Sharpe heavily weighted
+# FII ranking: recurring cash generation (FFO Yield) leads, since DY can be
+# inflated by asset sales or reserves. P/VP, risk-adjusted return and
+# dividend growth follow; raw DY has the lowest weight.
 FII_RANKING_INDICATORS = [
-    {"key": "dy_cagr",        "filter": lambda v: v is not None, "asc": False, "weight": 0.35},
-    {"key": "sharpe_ratio",   "filter": lambda v: v is not None, "asc": False, "weight": 0.35},
-    {"key": "dividend_yield", "filter": lambda v: v is not None, "asc": False, "weight": 0.15},
-    {"key": "p_vpa",          "filter": lambda v: v is not None, "asc": True,  "weight": 0.15},
+    {"key": "ffo_yield",      "filter": lambda v: v is not None and v > 0, "asc": False, "weight": 0.25},
+    {"key": "p_vpa",          "filter": lambda v: v is not None and v > 0, "asc": True,  "weight": 0.20},
+    {"key": "sharpe_ratio",   "filter": lambda v: v is not None,           "asc": False, "weight": 0.20},
+    {"key": "dy_cagr",        "filter": lambda v: v is not None,           "asc": False, "weight": 0.20},
+    {"key": "dividend_yield", "filter": lambda v: v is not None and v > 0, "asc": False, "weight": 0.15},
 ]
+
+# FIIs trading less than this (R$/day, 2-month average) are shown but not ranked.
+FII_MIN_DAILY_LIQUIDITY = 500_000
 
 
 def calculate_ranking(data: List[Dict[str, Any]], asset_type: str) -> List[Dict[str, Any]]:
@@ -159,17 +186,22 @@ def enrich_fii_metrics(
     data: List[Dict[str, Any]],
     ntnb_rate: float = 6.0,
     spread: float = 4.0,
-    selic_rate: float = 10.5
+    selic_rate: float = 10.5,
+    min_liquidity: float = FII_MIN_DAILY_LIQUIDITY,
 ) -> List[Dict[str, Any]]:
     """
-    Enriches FII metric dicts with computed fields (ceiling_price, sharpe_ratio)
-    and then applies ranking.
+    Enriches FII metric dicts with computed fields (ceiling_price,
+    total_return_12m, sharpe_ratio) and then applies ranking.
+
+    FIIs with known daily liquidity below `min_liquidity` are kept in the
+    output but excluded from the ranking (final_rank/rank_score = None).
 
     Args:
         data: List of FII metric dictionaries.
         ntnb_rate: NTN-B coupon rate (%).
         spread: Premium spread (%).
         selic_rate: Selic rate (%).
+        min_liquidity: Minimum average daily traded volume (R$) to be ranked.
 
     Returns:
         The enriched and ranked list.
@@ -178,8 +210,21 @@ def enrich_fii_metrics(
         item['ceiling_price'] = compute_ceiling_price(
             item.get('price'), item.get('dividend_yield'), ntnb_rate, spread
         )
+        item['total_return_12m'] = compute_total_return_12m(
+            item.get('val_12m'), item.get('dividend_yield')
+        )
         item['sharpe_ratio'] = compute_sharpe_ratio(
-            item.get('min_52w'), item.get('max_52w'), item.get('val_cagr'), selic_rate
+            item.get('min_52w'), item.get('max_52w'), item['total_return_12m'], selic_rate
         )
 
-    return calculate_ranking(data, 'reit')
+    def is_liquid(item: Dict[str, Any]) -> bool:
+        liquidity = item.get('liquidez')
+        return liquidity is None or liquidity >= min_liquidity
+
+    rankable = [item for item in data if is_liquid(item)]
+    calculate_ranking(rankable, 'reit')
+    for item in data:
+        if not is_liquid(item):
+            item['rank_score'] = None
+            item['final_rank'] = None
+    return data

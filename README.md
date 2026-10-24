@@ -48,11 +48,11 @@ graph TD
     subgraph Data Stores [Caching & Persistence]
         DB[(SQLite: data.db)]:::db
         Peewee[Peewee ORM]:::db
-        ReqCache[(requests_cache: intrinsic_statusinvest.cache)]:::db
+        ReqCache[(requests_cache)]:::db
     end
 
     subgraph External APIs [Data Sources]
-        SI(StatusInvest API):::api
+        SI(Fundamentus - FIIs):::api
         YF(Yahoo Finance - yfinance):::api
         B3(B3 Official News API):::api
     end
@@ -87,7 +87,7 @@ sequenceDiagram
     participant Backend as FastAPI Route
     participant Cache as DB (ParsedMetricsCache)
     participant ReqCache as Requests Cache
-    participant API as External (StatusInvest/YFinance)
+    participant API as External (Fundamentus/YFinance)
 
     User->>Backend: Request data for Ticker (e.g., PETR4)
     Backend->>Cache: Check if Parsed Metrics exist & valid
@@ -114,7 +114,7 @@ sequenceDiagram
 
 ### 1. BR Stocks (Ações Brasileiras)
 
-The Brazilian stocks tab cross-references data from StatusInvest and Yahoo Finance. It calculates Free Cash Flow (FCF) dynamically from TTM financial statements and applies a strict ranking algorithm (prioritizing low PEG, low P/FCF, and high ROE).
+The Brazilian stocks tab uses Yahoo Finance fundamentals. It calculates Free Cash Flow (FCF) dynamically from TTM financial statements and applies a strict ranking algorithm (prioritizing low PEG, low P/FCF, and high ROE).
 
 ![BR Stocks](assets/tab_br-stocks.png)
 
@@ -126,9 +126,12 @@ A dedicated view for the US Market, utilizing the same core fundamentals. It inc
 
 ### 3. BR FIIs (Fundos Imobiliários)
 
-Specialized tab for Brazilian REITs. It features:
+Specialized tab for Brazilian REITs, combining **Fundamentus** (P/VP, VP/Cota, FFO Yield, FFO Payout, Liquidez, Vacância, Cap Rate, Segmento, 52W range) with **Yahoo Finance** (price history, distributions). It features:
 * **Ceiling Price Calculation**: Dynamically computed based on global macroeconomic settings (NTN-B, Spread, Selic).
-* **Sharpe Ratio**: Assesses the historical risk-adjusted return of the fund against the Selic rate.
+* **Sharpe Ratio**: Risk-adjusted 12M total return (price change + dividends) against the Selic rate.
+* **Div. CAGR (3Y)**: Compound growth of trailing-12M distributions per share.
+* **Payout Warning**: FFO Yield is highlighted in yellow when `DY > FFO Yield × 1.1` (distributions not covered by operating cash).
+* **Ranking**: FFO Yield 25%, P/VP 20%, Sharpe 20%, Div. CAGR 20%, DY 15%; only FIIs with daily liquidity ≥ R$ 500k are ranked.
 * **Smart Highlighting**: Prices below the calculated Ceiling Price are automatically highlighted in bright green (`#00FF9F`).
 
 ![BR FIIs](assets/tab_br-fiis.png)
@@ -222,8 +225,11 @@ intrinsic/
 │   ├── config.py              # Constants, defaults, mappings
 │   ├── domain/calculations.py # Ranking & enrichment logic
 │   ├── models.py              # Peewee ORM models
+│   ├── providers/
+│   │   ├── yfinance_provider.py    # Prices, fundamentals, dividend CAGR
+│   │   └── fundamentus_provider.py # FII metrics (P/VP, FFO, vacância...)
 │   ├── services/
-│   │   ├── data_service.py    # StatusInvest + yfinance fetcher
+│   │   ├── data_service.py    # Provider orchestration + caching
 │   │   ├── news_service.py    # B3 news parser
 │   │   └── index_service.py   # B3 index composition resolver
 │   └── main.py                # FastAPI app factory
