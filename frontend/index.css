@@ -413,6 +413,23 @@ tbody tr:hover .name-sub {
     color: var(--danger);
 }
 
+.magic-cell {
+    white-space: nowrap;
+}
+
+.magic-sub {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    display: block;
+    margin-top: 0.15rem;
+    opacity: 0.85;
+}
+
+tbody tr:hover .magic-sub {
+    color: var(--bg-surface);
+    opacity: 0.8;
+}
+
 /* External Links Column */
 .links-cell {
     white-space: nowrap;

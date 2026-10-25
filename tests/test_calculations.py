@@ -6,6 +6,7 @@ from app.domain.calculations import (
     compute_total_return_12m,
     calculate_ranking,
     enrich_fii_metrics,
+    apply_magic_formula,
     FII_MIN_DAILY_LIQUIDITY,
 )
 
@@ -162,3 +163,73 @@ class TestEnrichFiiMetrics:
         assert by_ticker["LIQUID"]["final_rank"] == 1
         assert by_ticker["ILLIQUID"]["final_rank"] is None
         assert by_ticker["ILLIQUID"]["rank_score"] is None
+
+
+class TestApplyMagicFormula:
+    def test_basic_magic_formula_ranking(self):
+        # 4 tickers:
+        # A: ebit_ev = 12.0, roc_gb = 40.0 -> rank_ey = 1, rank_roc = 2 -> score = 3
+        # B: ebit_ev = 8.0,  roc_gb = 50.0 -> rank_ey = 3, rank_roc = 1 -> score = 4
+        # C: ebit_ev = 10.0, roc_gb = 30.0 -> rank_ey = 2, rank_roc = 3 -> score = 5
+        # D: ebit_ev = 5.0,  roc_gb = 20.0 -> rank_ey = 4, rank_roc = 4 -> score = 8
+        stocks = [
+            {"ticker": "D", "ebit_ev": 5.0, "roc_gb": 20.0},
+            {"ticker": "A", "ebit_ev": 12.0, "roc_gb": 40.0},
+            {"ticker": "C", "ebit_ev": 10.0, "roc_gb": 30.0},
+            {"ticker": "B", "ebit_ev": 8.0, "roc_gb": 50.0},
+        ]
+        res = apply_magic_formula(stocks)
+        by_ticker = {item["ticker"]: item for item in res}
+
+        assert by_ticker["A"]["magic_rank_ey"] == 1
+        assert by_ticker["A"]["magic_rank_roc"] == 2
+        assert by_ticker["A"]["magic_score"] == 3
+        assert by_ticker["A"]["magic_rank"] == 1
+
+        assert by_ticker["B"]["magic_rank_ey"] == 3
+        assert by_ticker["B"]["magic_rank_roc"] == 1
+        assert by_ticker["B"]["magic_score"] == 4
+        assert by_ticker["B"]["magic_rank"] == 2
+
+        assert by_ticker["C"]["magic_rank_ey"] == 2
+        assert by_ticker["C"]["magic_rank_roc"] == 3
+        assert by_ticker["C"]["magic_score"] == 5
+        assert by_ticker["C"]["magic_rank"] == 3
+
+        assert by_ticker["D"]["magic_rank_ey"] == 4
+        assert by_ticker["D"]["magic_rank_roc"] == 4
+        assert by_ticker["D"]["magic_score"] == 8
+        assert by_ticker["D"]["magic_rank"] == 4
+
+    def test_ineligible_financials_and_negative_values(self):
+        stocks = [
+            {"ticker": "NORMAL", "ebit_ev": 10.0, "roc_gb": 25.0},
+            {"ticker": "BANK", "ebit_ev": 12.0, "roc_gb": None},       # Financials: missing ROC
+            {"ticker": "LOSS", "ebit_ev": -2.0, "roc_gb": -5.0},       # Loss-maker: negative values
+            {"ticker": "NO_EV", "ebit_ev": None, "roc_gb": 30.0},      # Missing EV
+        ]
+        res = apply_magic_formula(stocks)
+        by_ticker = {item["ticker"]: item for item in res}
+
+        assert by_ticker["NORMAL"]["magic_rank"] == 1
+        assert by_ticker["BANK"]["magic_rank"] is None
+        assert by_ticker["BANK"]["magic_score"] is None
+        assert by_ticker["LOSS"]["magic_rank"] is None
+        assert by_ticker["NO_EV"]["magic_rank"] is None
+
+    def test_tie_breaking_by_earnings_yield(self):
+        # Tie in magic_score (score = 3):
+        # T1: EY rank 1 (15%), ROC rank 2 (20%) -> score 3
+        # T2: EY rank 2 (10%), ROC rank 1 (30%) -> score 3
+        # Tie-breaker prioritizes higher ebit_ev (T1 should get rank 1, T2 rank 2)
+        stocks = [
+            {"ticker": "T2", "ebit_ev": 10.0, "roc_gb": 30.0},
+            {"ticker": "T1", "ebit_ev": 15.0, "roc_gb": 20.0},
+        ]
+        res = apply_magic_formula(stocks)
+        by_ticker = {item["ticker"]: item for item in res}
+        assert by_ticker["T1"]["magic_score"] == 3
+        assert by_ticker["T2"]["magic_score"] == 3
+        assert by_ticker["T1"]["magic_rank"] == 1
+        assert by_ticker["T2"]["magic_rank"] == 2
+

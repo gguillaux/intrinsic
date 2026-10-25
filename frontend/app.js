@@ -52,10 +52,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const TAB_CONFIG = {
-        'br-stocks': { title: 'BR Stocks', subtitle: 'Focus on Low P/FCF, EPS, low Debt, P/E, and PEG < 1', type: 'stock' },
-        'us-stocks': { title: 'US Stocks', subtitle: 'Focus on Low P/FCF, EPS, low Debt, P/E, and PEG < 1', type: 'stock' },
+        'br-stocks': { title: 'BR Stocks', subtitle: 'Focus on Earnings Yield, Magic Formula, Low P/FCF, P/E, and ROIC', type: 'stock' },
+        'us-stocks': { title: 'US Stocks', subtitle: 'Focus on Earnings Yield, Magic Formula, Low P/FCF, P/E, and ROIC', type: 'stock' },
         'br-fiis': { title: 'BR FIIs', subtitle: 'Focus on High Dividend Yield and Price to Book (P/VPA)', type: 'reit' },
-        'us-reits': { title: 'US REITs', subtitle: 'Focus on Low P/FCF, EPS, low Debt, P/E, and PEG < 1', type: 'stock' },
+        'us-reits': { title: 'US REITs', subtitle: 'Focus on Earnings Yield, Magic Formula, Low P/FCF, P/E, and ROIC', type: 'stock' },
         'b3-indices': { title: 'B3 Indices Configuration', subtitle: 'Select active index for BR Stocks tab', type: 'config' },
         'market-news': { title: 'Market News Feed', subtitle: 'Latest corporate and economic announcements (B3)', type: 'news' },
         'about-app': { title: 'About Intrinsic', subtitle: 'Architecture, features, and documentation', type: 'about' }
@@ -287,7 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let headers = [];
 
         if (type === 'stock') {
-            headers = ["Rank", "Ticker", "Name", "Price", "PEG", "P/FCF", "P/E", "P/A", "EPS", "Debt/EBIT", "ROIC (%)", "ROE (%)", "Net Margin (%)", "Dividend Yield (%)", "Score"];
+            headers = ["Rank", "Ticker", "Name", "Price", "PEG", "P/FCF", "P/E", "P/A", "EPS", "E/P (%)", "Magic Rank", "EBIT/EV (%)", "ROC (%)", "Debt/EBIT", "ROIC (%)", "ROE (%)", "Net Margin (%)", "Dividend Yield (%)", "Score"];
         } else if (type === 'reit') {
             if (currentTab === 'br-fiis') {
                 headers = ["Rank", "Ticker", "Name", "Segmento", "Price", "Ceiling Price", "Dividend Yield (%)", "FFO Yield (%)", "P/VP", "Div. CAGR (3y) (%)", "Min 52W", "Max 52W", "Val. (12M) (%)", "VP/Cota", "Liquidez (R$)", "Vacância (%)", "Sharpe Ratio", "Score"];
@@ -323,6 +323,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 row.push(escapeCSV(item.pe));
                 row.push(escapeCSV(item.p_a));
                 row.push(escapeCSV(item.eps));
+                row.push(escapeCSV(item.earnings_yield));
+                row.push(escapeCSV(item.magic_rank));
+                row.push(escapeCSV(item.ebit_ev));
+                row.push(escapeCSV(item.roc_gb));
                 row.push(escapeCSV(item.debt_ebit));
                 row.push(escapeCSV(item.roic));
                 row.push(escapeCSV(item.roe));
@@ -901,8 +905,16 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span class="valuation-metric-value ${item.p_nwc != null ? (item.p_nwc > 0 && item.p_nwc <= 1.5 ? 'deep-value' : (item.p_nwc > 10 || item.p_nwc < 0 ? 'overvalued' : '')) : ''}">${item.p_nwc != null ? item.p_nwc.toFixed(2) + 'x' : '-'}</span>
                             </div>
                             <div class="valuation-metric-row">
+                                <span class="valuation-metric-label">E/P (EY)</span>
+                                <span class="valuation-metric-value ${item.earnings_yield != null ? (item.earnings_yield >= 8 ? 'deep-value' : (item.earnings_yield < 0 ? 'overvalued' : '')) : ''}">${item.earnings_yield != null ? item.earnings_yield.toFixed(2) + '%' : '-'}</span>
+                            </div>
+                            <div class="valuation-metric-row">
+                                <span class="valuation-metric-label">Magic Rank</span>
+                                <span class="valuation-metric-value">${item.magic_rank != null ? '#' + item.magic_rank : '-'}</span>
+                            </div>
+                            <div class="valuation-metric-row">
                                 <span class="valuation-metric-label">Price</span>
-                                <span class="valuation-metric-value">${item.price != null ? '$' + item.price.toFixed(2) : '-'}</span>
+                                <span class="valuation-metric-value">${item.price != null ? (currentTab === 'br-stocks' ? 'R$ ' : '$') + item.price.toFixed(2) : '-'}</span>
                             </div>
                         </div>
                     </div>
@@ -1219,6 +1231,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <th data-sort="pe">P/E${getIcon('pe')}</th>
                 <th data-sort="p_a">P/A${getIcon('p_a')}</th>
                 <th data-sort="eps">EPS${getIcon('eps')}</th>
+                <th data-sort="earnings_yield" title="Earnings Yield (EPS / Price)">E/P (%)${getIcon('earnings_yield')}</th>
+                <th data-sort="magic_rank" title="Joel Greenblatt's Magic Formula: rank(EBIT/EV) + rank(ROC)">Magic${getIcon('magic_rank')}</th>
                 <th data-sort="debt_ebit">Debt/EBIT${getIcon('debt_ebit')}</th>
                 <th data-sort="roic">ROIC${getIcon('roic')}</th>
                 <th data-sort="roe">ROE${getIcon('roe')}</th>
@@ -1237,6 +1251,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <th>${getFilterInput('pe')}</th>
                 <th>${getFilterInput('p_a')}</th>
                 <th>${getFilterInput('eps')}</th>
+                <th>${getFilterInput('earnings_yield')}</th>
+                <th>${getFilterInput('magic_rank')}</th>
                 <th>${getFilterInput('debt_ebit')}</th>
                 <th>${getFilterInput('roic')}</th>
                 <th>${getFilterInput('roe')}</th>
@@ -1432,6 +1448,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 else if (item.final_rank === 4) { rankIcon = '🎖️'; rankClass = 'rank-4'; }
                 else if (item.final_rank === 5) { rankIcon = '🌟'; rankClass = 'rank-5'; }
 
+                let magicBadge = '';
+                if (item.magic_rank === 1) magicBadge = ' 🏆';
+                else if (item.magic_rank === 2) magicBadge = ' 🏅';
+                else if (item.magic_rank === 3) magicBadge = ' 🥉';
+                let magicDisplay = '-';
+                if (item.magic_rank != null) {
+                    const subText = `<span class="magic-sub">EY #${item.magic_rank_ey} · ROC #${item.magic_rank_roc}</span>`;
+                    magicDisplay = `<div class="magic-cell">#${item.magic_rank}${magicBadge}${subText}</div>`;
+                }
+
+                let magicTooltip = '';
+                if (item.magic_rank != null) {
+                    magicTooltip = `Magic Score: ${item.magic_score} (EY #${item.magic_rank_ey} + ROC #${item.magic_rank_roc})\nEBIT/EV: ${formatPercent(item.ebit_ev)} | ROC: ${formatPercent(item.roc_gb)}`;
+                    if (currentTab === 'us-reits') {
+                        magicTooltip += '\n⚠️ Note: Large real estate assets may distort Greenblatt ROC for REITs.';
+                    }
+                } else if (item.ebit_ev == null && item.roc_gb == null) {
+                    magicTooltip = 'N/A: Financials, holding companies, or missing capital/EBIT';
+                }
+
+                const eyClass = (item.earnings_yield != null && item.earnings_yield >= 8) ? 'good-metric' : (item.earnings_yield != null && item.earnings_yield < 0 ? 'bad-metric' : '');
+
                 rowHTML += `<tr class="${rankClass}">
                     <td style="font-size: 1.1rem; text-align: center;">${item.final_rank || '-'} ${rankIcon}</td>
                     <td class="ticker-cell">
@@ -1444,6 +1482,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="${peClass}">${formatNumber(item.pe)}</td>
                     <td class="${(item.p_a != null && item.p_a < 1) ? 'good-metric' : (item.p_a != null && item.p_a > 3 ? 'bad-metric' : '')}">${formatNumber(item.p_a)}</td>
                     <td class="${(item.eps != null && item.eps > 0) ? 'good-metric' : (item.eps != null && item.eps < 0 ? 'bad-metric' : '')}">${formatNumber(item.eps)}</td>
+                    <td class="${eyClass}" title="Earnings Yield: EPS / Price">${formatPercent(item.earnings_yield)}</td>
+                    <td title="${escapeHTML(magicTooltip)}">${magicDisplay}</td>
                     <td class="${debtEbitClass}">${formatNumber(item.debt_ebit)}</td>
                     <td class="${roicClass}">${formatPercent(item.roic)}</td>
                     <td class="${roeClass}">${formatPercent(item.roe)}</td>

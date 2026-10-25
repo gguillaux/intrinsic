@@ -228,3 +228,75 @@ def enrich_fii_metrics(
             item['rank_score'] = None
             item['final_rank'] = None
     return data
+
+
+def apply_magic_formula(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Computes cross-sectional Joel Greenblatt Magic Formula ranking for a list of stocks.
+
+    Eligible stocks must have positive EBIT/EV (ebit_ev > 0) and positive
+    Greenblatt ROC (roc_gb > 0).
+
+    Ranking method:
+      1. rank_ey: position sorted by ebit_ev descending (1 = highest earnings yield)
+      2. rank_roc: position sorted by roc_gb descending (1 = highest return on capital)
+      3. magic_score: rank_ey + rank_roc (lower is better)
+      4. magic_rank: 1..N sorted by magic_score ascending (ties broken by ebit_ev descending)
+
+    Ineligible stocks (e.g. financials/banks without NWC, missing EBIT, negative EV/EBIT)
+    receive None for all magic_* fields.
+    """
+    for item in data:
+        item['magic_rank_ey'] = None
+        item['magic_rank_roc'] = None
+        item['magic_score'] = None
+        item['magic_rank'] = None
+
+    eligible = [
+        item for item in data
+        if item.get('ebit_ev') is not None and item.get('ebit_ev') > 0
+        and item.get('roc_gb') is not None and item.get('roc_gb') > 0
+    ]
+
+    if not eligible:
+        return data
+
+    # 1. Rank on EBIT / EV (Earnings Yield) descending
+    sorted_by_ey = sorted(eligible, key=lambda x: x['ebit_ev'], reverse=True)
+    curr_rank = 1
+    for i, item in enumerate(sorted_by_ey):
+        if i > 0 and item['ebit_ev'] < sorted_by_ey[i - 1]['ebit_ev']:
+            curr_rank = i + 1
+        item['magic_rank_ey'] = curr_rank
+
+    # 2. Rank on ROC (Return on Capital) descending
+    sorted_by_roc = sorted(eligible, key=lambda x: x['roc_gb'], reverse=True)
+    curr_rank = 1
+    for i, item in enumerate(sorted_by_roc):
+        if i > 0 and item['roc_gb'] < sorted_by_roc[i - 1]['roc_gb']:
+            curr_rank = i + 1
+        item['magic_rank_roc'] = curr_rank
+
+    # 3. Combined score
+    for item in eligible:
+        item['magic_score'] = item['magic_rank_ey'] + item['magic_rank_roc']
+
+    # 4. Final Magic Rank: lower score is better; ties broken by higher ebit_ev, then roc_gb
+    sorted_final = sorted(
+        eligible,
+        key=lambda x: (x['magic_score'], -(x['ebit_ev'] or 0), -(x['roc_gb'] or 0))
+    )
+    curr_rank = 1
+    for i, item in enumerate(sorted_final):
+        if i > 0 and (
+            item['magic_score'], item['ebit_ev'], item['roc_gb']
+        ) != (
+            sorted_final[i - 1]['magic_score'],
+            sorted_final[i - 1]['ebit_ev'],
+            sorted_final[i - 1]['roc_gb'],
+        ):
+            curr_rank = i + 1
+        item['magic_rank'] = curr_rank
+
+    return data
+

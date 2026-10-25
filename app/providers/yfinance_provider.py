@@ -28,6 +28,9 @@ def populate_fundamentals(data: Dict[str, Any], info: Dict[str, Any]) -> None:
     eps = info.get('trailingEps')
     if eps is not None:
         data['eps'] = round(float(eps), 2)
+        price = data.get('price') or resolve_price(info)
+        if price and price > 0:
+            data['earnings_yield'] = round((float(eps) / float(price)) * 100, 2)
 
     pe = info.get('trailingPE')
     if pe is not None:
@@ -99,6 +102,101 @@ def compute_ttm_fcf(ticker: str, data: Dict[str, Any], yf_ticker: yf.Ticker) -> 
         logger.warning("TTM P/FCF calculation failed for %s: %s", ticker, e)
 
 
+def compute_magic_formula_inputs(
+    info: Dict[str, Any],
+    financials: Any,
+    quarterly_financials: Any,
+    balance_sheet: Any,
+) -> Dict[str, Optional[float]]:
+    """
+    Computes Greenblatt Magic Formula raw input ratios:
+      - ebit_ev: EBIT / Enterprise Value (%)
+      - roc_gb: EBIT / (Working Capital + Net PPE) (%)
+
+    Returns dict with 'ebit_ev' and 'roc_gb'.
+    """
+    result: Dict[str, Optional[float]] = {"ebit_ev": None, "roc_gb": None}
+
+    # 1. Currency mismatch guard (e.g. ADRs reporting in foreign currency while traded in USD)
+    fin_curr = info.get("financialCurrency")
+    curr = info.get("currency")
+    currency_mismatch = bool(fin_curr and curr and str(fin_curr).upper() != str(curr).upper())
+
+    # 2. Extract EBIT (TTM sum of 4 quarters or fallback to latest annual)
+    ebit = None
+    for df, is_quarterly in [(quarterly_financials, True), (financials, False)]:
+        if df is not None and hasattr(df, "index") and hasattr(df, "columns") and len(df.columns) > 0:
+            for row_name in ["EBIT", "Operating Income", "Total Operating Income As Reported"]:
+                if row_name in df.index:
+                    vals = df.loc[row_name].dropna()
+                    if is_quarterly and len(vals) >= 4:
+                        ebit = float(sum(vals.iloc[:4]))
+                        break
+                    elif not is_quarterly and len(vals) > 0:
+                        ebit = float(vals.iloc[0])
+                        break
+            if ebit is not None:
+                break
+
+    if ebit is None:
+        return result
+
+    # 3. Enterprise Value (EV)
+    ev = info.get("enterpriseValue")
+    if ev is None:
+        mcap = info.get("marketCap")
+        if mcap:
+            debt = info.get("totalDebt", 0) or 0
+            cash = info.get("totalCash", 0) or 0
+            ev = float(mcap) + float(debt) - float(cash)
+
+    if ev is not None and ev > 0 and not currency_mismatch:
+        result["ebit_ev"] = round((ebit / float(ev)) * 100, 2)
+
+    # 4. Return on Capital (ROC) = EBIT / (NWC + Net PPE)
+    nwc = None
+    ppe = None
+    if balance_sheet is not None and hasattr(balance_sheet, "index") and hasattr(balance_sheet, "columns") and len(balance_sheet.columns) > 0:
+        # Net Working Capital
+        if "Working Capital" in balance_sheet.index:
+            wcs = balance_sheet.loc["Working Capital"].dropna()
+            if len(wcs) > 0:
+                nwc = float(wcs.iloc[0])
+        elif "Current Assets" in balance_sheet.index and "Current Liabilities" in balance_sheet.index:
+            ca = balance_sheet.loc["Current Assets"].dropna()
+            cl = balance_sheet.loc["Current Liabilities"].dropna()
+            if len(ca) > 0 and len(cl) > 0:
+                nwc = float(ca.iloc[0]) - float(cl.iloc[0])
+
+        # Net PPE
+        if "Net PPE" in balance_sheet.index:
+            ppes = balance_sheet.loc["Net PPE"].dropna()
+            if len(ppes) > 0:
+                ppe = float(ppes.iloc[0])
+        elif "Gross PPE" in balance_sheet.index and "Accumulated Depreciation" in balance_sheet.index:
+            gppe = balance_sheet.loc["Gross PPE"].dropna()
+            dep = balance_sheet.loc["Accumulated Depreciation"].dropna()
+            if len(gppe) > 0 and len(dep) > 0:
+                ppe = float(gppe.iloc[0]) - abs(float(dep.iloc[0]))
+
+    if nwc is not None and ppe is not None:
+        invested_capital = nwc + ppe
+        if invested_capital > 0:
+            result["roc_gb"] = round((ebit / invested_capital) * 100, 2)
+
+    return result
+
+
+def _has_valid_quarterly_ebit(quarterly_financials: Any) -> bool:
+    if quarterly_financials is not None and hasattr(quarterly_financials, "index") and hasattr(quarterly_financials, "columns") and len(quarterly_financials.columns) > 0:
+        for row_name in ["EBIT", "Operating Income", "Total Operating Income As Reported"]:
+            if row_name in quarterly_financials.index:
+                vals = quarterly_financials.loc[row_name].dropna()
+                if len(vals) >= 4:
+                    return True
+    return False
+
+
 class YFinanceProvider(MetricsProvider):
     """Primary data provider using yfinance."""
 
@@ -129,9 +227,10 @@ class YFinanceProvider(MetricsProvider):
                 data["p_s"] = round(float(ps_ratio), 2)
 
             # P/A and P/NWC calculation
+            bs = None
             try:
-                bs = yf_ticker.balance_sheet
-                if hasattr(bs, 'index') and len(bs.columns) > 0:
+                bs = getattr(yf_ticker, "balance_sheet", None)
+                if bs is not None and hasattr(bs, 'index') and hasattr(bs, 'columns') and len(bs.columns) > 0:
                     if 'Total Assets' in bs.index:
                         total_assets = bs.loc['Total Assets'].iloc[0]
                         if market_cap and total_assets and total_assets > 0:
@@ -152,6 +251,20 @@ class YFinanceProvider(MetricsProvider):
 
             # P/FCF
             compute_ttm_fcf(ticker, data, yf_ticker)
+
+            # Magic Formula inputs (EBIT/EV and Greenblatt ROC)
+            try:
+                qf = getattr(yf_ticker, "quarterly_financials", None)
+                fin = None
+                if not _has_valid_quarterly_ebit(qf):
+                    fin = getattr(yf_ticker, "financials", None)
+                mf_inputs = compute_magic_formula_inputs(info, fin, qf, bs)
+                if mf_inputs.get("ebit_ev") is not None:
+                    data["ebit_ev"] = mf_inputs["ebit_ev"]
+                if mf_inputs.get("roc_gb") is not None:
+                    data["roc_gb"] = mf_inputs["roc_gb"]
+            except Exception as e:
+                logger.warning("Magic Formula calculation failed for %s: %s", ticker, e)
 
         except Exception as e:
             logger.error("YFinanceProvider.fetch_stock failed for %s: %s", ticker, e)

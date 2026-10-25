@@ -115,12 +115,14 @@ sequenceDiagram
 ### 1. BR Stocks (Ações Brasileiras)
 
 The Brazilian stocks tab uses Yahoo Finance fundamentals. It calculates Free Cash Flow (FCF) dynamically from TTM financial statements and applies a strict ranking algorithm (prioritizing low PEG, low P/FCF, and high ROE).
+* **Earnings Yield (E/P)**: Evaluates earnings generation relative to market price (`EPS / Price × 100`).
+* **Joel Greenblatt's Magic Formula**: Computes relative cross-sectional ranking combining `rank(EBIT / EV)` and `rank(EBIT / (NWC + Net PPE))`. Financial institutions and banks lacking traditional working capital are gracefully excluded (`–`).
 
 ![BR Stocks](assets/tab_br-stocks.png)
 
 ### 2. US Stocks (Ações Americanas)
 
-A dedicated view for the US Market, utilizing the same core fundamentals. It includes an **Anomaly Firewall** that intercepts hyper-inflated anomalies (e.g., Argentine ADRs displaying >1000% ROE) and falls back to reliable bounds.
+A dedicated view for the US Market, utilizing the same core fundamentals, Earnings Yield, and Magic Formula rankings. It includes an **Anomaly Firewall** that intercepts hyper-inflated anomalies (e.g., foreign ADR currency mismatches or Argentine ADRs displaying >1000% ROE) and falls back to reliable bounds.
 
 ![US Stocks](assets/tab_us-stocks.png)
 

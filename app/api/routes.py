@@ -8,8 +8,14 @@ from ..core.entities import Stock
 from ..use_cases.diligence import CalculateZScoreUseCase, ROICCalculator
 
 # Legacy imports for frontend table views
-from ..services.data_service import fetch_stock_metrics, fetch_reit_metrics, update_cache_expiration
-from ..domain.calculations import calculate_ranking, enrich_fii_metrics
+from ..services.data_service import (
+    fetch_stock_metrics,
+    fetch_reit_metrics,
+    fetch_many_stocks,
+    fetch_many_reits,
+    update_cache_expiration,
+)
+from ..domain.calculations import calculate_ranking, enrich_fii_metrics, apply_magic_formula
 from ..services.index_service import get_index_composition
 from ..services.news_service import fetch_and_store_news
 from ..models import ParsedMetricsCache
@@ -79,7 +85,7 @@ def parse_tickers(tickers: str) -> List[str]:
     return [t.strip().upper() for t in tickers.split(",") if t.strip()]
 
 @router.get("/stocks/br")
-async def get_br_stocks(tickers: Optional[str] = None, index: Optional[str] = "IBOV"):
+def get_br_stocks(tickers: Optional[str] = None, index: Optional[str] = "IBOV"):
     asset_list = parse_tickers(tickers)
     if not asset_list and index:
         composition = get_index_composition(index)
@@ -88,30 +94,23 @@ async def get_br_stocks(tickers: Optional[str] = None, index: Optional[str] = "I
     if not asset_list:
         asset_list = ["VALE3.SA", "PETR4.SA", "ITUB4.SA"] # Default fallback
         
-    results = []
-    for ticker in asset_list:
-        if not ticker.endswith(".SA"):
-            ticker += ".SA"
-        res = fetch_stock_metrics(ticker)
-        if res:
-            results.append(res)
+    formatted = [t if t.endswith(".SA") else f"{t}.SA" for t in asset_list]
+    results = fetch_many_stocks(formatted, is_us_reit=False, fetch_fn=fetch_stock_metrics)
+    apply_magic_formula(results)
     return calculate_ranking(results, 'stock')
 
 @router.get("/stocks/us")
-async def get_us_stocks(tickers: Optional[str] = None):
+def get_us_stocks(tickers: Optional[str] = None):
     asset_list = parse_tickers(tickers)
     if not asset_list:
         asset_list = ["AAPL", "MSFT", "GOOGL"]
         
-    results = []
-    for ticker in asset_list:
-        res = fetch_stock_metrics(ticker, is_us_reit=False)
-        if res:
-            results.append(res)
+    results = fetch_many_stocks(asset_list, is_us_reit=False, fetch_fn=fetch_stock_metrics)
+    apply_magic_formula(results)
     return calculate_ranking(results, 'stock')
 
 @router.get("/fiis/br")
-async def get_br_fiis(
+def get_br_fiis(
     tickers: Optional[str] = None, 
     ntnb: float = 6.0, 
     spread: float = 4.0, 
@@ -121,26 +120,18 @@ async def get_br_fiis(
     if not asset_list:
         asset_list = ["HGLG11.SA", "MXRF11.SA", "KNRI11.SA"]
         
-    results = []
-    for ticker in asset_list:
-        if not ticker.endswith(".SA"):
-            ticker += ".SA"
-        res = fetch_reit_metrics(ticker)
-        if res:
-            results.append(res)
+    formatted = [t if t.endswith(".SA") else f"{t}.SA" for t in asset_list]
+    results = fetch_many_reits(formatted, fetch_fn=fetch_reit_metrics)
     return enrich_fii_metrics(results, ntnb_rate=ntnb, spread=spread, selic_rate=selic)
 
 @router.get("/reits/us")
-async def get_us_reits(tickers: Optional[str] = None):
+def get_us_reits(tickers: Optional[str] = None):
     asset_list = parse_tickers(tickers)
     if not asset_list:
         asset_list = ["O", "AMT", "PLD"]
         
-    results = []
-    for ticker in asset_list:
-        res = fetch_stock_metrics(ticker, is_us_reit=True)
-        if res:
-            results.append(res)
+    results = fetch_many_stocks(asset_list, is_us_reit=True, fetch_fn=fetch_stock_metrics)
+    apply_magic_formula(results)
     return calculate_ranking(results, 'stock')
 
 @router.get("/news")

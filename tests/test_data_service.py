@@ -121,3 +121,39 @@ class TestPopulateYfinanceFundamentals:
         _populate_yfinance_fundamentals(data, info)
         assert data['p_vpa'] == 2.3456  # rounded to 4 decimals
 
+
+def test_fetch_many_stocks_preserves_order_and_filters_errors():
+    from app.services.data_service import fetch_many_stocks
+    from unittest.mock import patch
+
+    # Mock fetch function simulating various ticker states
+    def mock_fetch(ticker, is_us_reit=False):
+        if ticker == "BAD.SA":
+            return {"ticker": "BAD.SA", "_error": True}
+        return {"ticker": ticker, "price": 100.0, "name": f"Company {ticker}"}
+
+    with patch('app.services.data_service._read_from_cache', return_value=None):
+        tickers = ["T3.SA", "T1.SA", "BAD.SA", "T2.SA"]
+        results = fetch_many_stocks(tickers, fetch_fn=mock_fetch, max_workers=4)
+
+        # BAD.SA filtered out, order T3 -> T1 -> T2 preserved
+        assert len(results) == 3
+        assert [r["ticker"] for r in results] == ["T3.SA", "T1.SA", "T2.SA"]
+
+
+def test_negative_caching():
+    from app.services.data_service import _write_to_cache, _read_from_cache
+    from app.models import ParsedMetricsCache
+
+    bad_ticker = "DELISTED_TEST.SA"
+    try:
+        # Write empty metrics (no price) -> should store negative cache marker
+        _write_to_cache(bad_ticker, {"ticker": bad_ticker, "name": bad_ticker})
+        cached = _read_from_cache(bad_ticker)
+        assert cached is not None
+        assert cached.get("_error") is True
+        assert cached.get("ticker") == bad_ticker
+    finally:
+        ParsedMetricsCache.delete().where(ParsedMetricsCache.ticker == bad_ticker).execute()
+
+

@@ -37,6 +37,14 @@ class StockMetrics:
     vacancia: Optional[float] = None
     caixa: Optional[float] = None           # Cash as % of total assets
     dy_cagr: Optional[float] = None         # Dividend-per-share CAGR 3y, %
+    # Earnings Yield & Magic Formula (Greenblatt)
+    earnings_yield: Optional[float] = None   # EPS / price, %
+    ebit_ev: Optional[float] = None          # EBIT / Enterprise Value, %
+    roc_gb: Optional[float] = None           # EBIT / (NWC + Net PPE), % (Greenblatt ROC)
+    magic_rank_ey: Optional[int] = None      # Cross-sectional rank on EBIT/EV (1 = best)
+    magic_rank_roc: Optional[int] = None     # Cross-sectional rank on ROC (1 = best)
+    magic_score: Optional[int] = None        # magic_rank_ey + magic_rank_roc
+    magic_rank: Optional[int] = None         # Final Magic Formula rank (1 = best)
     # Computed / ranking fields
     total_return_12m: Optional[float] = None
     rank_score: Optional[float] = None
