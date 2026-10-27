@@ -287,7 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let headers = [];
 
         if (type === 'stock') {
-            headers = ["Rank", "Ticker", "Name", "Price", "PEG", "P/FCF", "P/E", "P/A", "EPS", "E/P (%)", "Magic Rank", "EBIT/EV (%)", "ROC (%)", "Debt/EBIT", "ROIC (%)", "ROE (%)", "Net Margin (%)", "Dividend Yield (%)", "Score"];
+            headers = ["Rank", "Ticker", "Name", "Price", "PEG", "P/FCF", "P/E", "P/A", "EPS", "E/P (%)", "Magic Rank", "Magic Score (0-100)", "EBIT/EV (%)", "ROC (%)", "Debt/EBIT", "ROIC (%)", "ROE (%)", "Net Margin (%)", "Dividend Yield (%)", "Score"];
         } else if (type === 'reit') {
             if (currentTab === 'br-fiis') {
                 headers = ["Rank", "Ticker", "Name", "Segmento", "Price", "Ceiling Price", "Dividend Yield (%)", "FFO Yield (%)", "P/VP", "Div. CAGR (3y) (%)", "Min 52W", "Max 52W", "Val. (12M) (%)", "VP/Cota", "Liquidez (R$)", "Vacância (%)", "Sharpe Ratio", "Score"];
@@ -325,6 +325,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 row.push(escapeCSV(item.eps));
                 row.push(escapeCSV(item.earnings_yield));
                 row.push(escapeCSV(item.magic_rank));
+                row.push(escapeCSV(item.magic_pct_score));
                 row.push(escapeCSV(item.ebit_ev));
                 row.push(escapeCSV(item.roc_gb));
                 row.push(escapeCSV(item.debt_ebit));
@@ -910,7 +911,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                             <div class="valuation-metric-row">
                                 <span class="valuation-metric-label">Magic Rank</span>
-                                <span class="valuation-metric-value">${item.magic_rank != null ? '#' + item.magic_rank : '-'}</span>
+                                <span class="valuation-metric-value">${item.magic_rank != null ? '#' + item.magic_rank + (item.magic_pct_score != null ? ` (${Math.round(item.magic_pct_score)})` : '') : '-'}</span>
                             </div>
                             <div class="valuation-metric-row">
                                 <span class="valuation-metric-label">Price</span>
@@ -1454,13 +1455,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 else if (item.magic_rank === 3) magicBadge = ' 🥉';
                 let magicDisplay = '-';
                 if (item.magic_rank != null) {
-                    const subText = `<span class="magic-sub">EY #${item.magic_rank_ey} · ROC #${item.magic_rank_roc}</span>`;
-                    magicDisplay = `<div class="magic-cell">#${item.magic_rank}${magicBadge}${subText}</div>`;
+                    let scoreBadge = '';
+                    if (item.magic_pct_score != null) {
+                        const scoreClass = item.magic_pct_score >= 75 ? 'magic-score-high' : (item.magic_pct_score >= 50 ? 'magic-score-mid' : 'magic-score-low');
+                        scoreBadge = `<span class="magic-score-badge ${scoreClass}" title="Normalized Score (0-100)">${Math.round(item.magic_pct_score)}</span>`;
+                    }
+                    const eySub = item.magic_pct_ey != null ? `${Math.round(item.magic_pct_ey)}%ile (#${item.magic_rank_ey})` : `#${item.magic_rank_ey}`;
+                    const rocSub = item.magic_pct_roc != null ? `${Math.round(item.magic_pct_roc)}%ile (#${item.magic_rank_roc})` : `#${item.magic_rank_roc}`;
+                    const subText = `<span class="magic-sub">EY ${eySub} · ROC ${rocSub}</span>`;
+                    magicDisplay = `<div class="magic-cell">#${item.magic_rank}${magicBadge}${scoreBadge}${subText}</div>`;
                 }
 
                 let magicTooltip = '';
                 if (item.magic_rank != null) {
-                    magicTooltip = `Magic Score: ${item.magic_score} (EY #${item.magic_rank_ey} + ROC #${item.magic_rank_roc})\nEBIT/EV: ${formatPercent(item.ebit_ev)} | ROC: ${formatPercent(item.roc_gb)}`;
+                    const scoreText = item.magic_pct_score != null ? `Score: ${item.magic_pct_score}/100` : `Magic Score: ${item.magic_score}`;
+                    const pctEyText = item.magic_pct_ey != null ? ` (${item.magic_pct_ey}%ile)` : '';
+                    const pctRocText = item.magic_pct_roc != null ? ` (${item.magic_pct_roc}%ile)` : '';
+                    magicTooltip = `${scoreText}\nEY #${item.magic_rank_ey}${pctEyText} (EBIT/EV: ${formatPercent(item.ebit_ev)})\nROC #${item.magic_rank_roc}${pctRocText} (ROC: ${formatPercent(item.roc_gb)})`;
                     if (currentTab === 'us-reits') {
                         magicTooltip += '\n⚠️ Note: Large real estate assets may distort Greenblatt ROC for REITs.';
                     }
@@ -1597,8 +1608,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 return `<pre><code class="language-${lang || ''}">${escaped}</code></pre>`;
             };
 
-            // Fix image paths: assets/ → ../assets/ (since README is at project root)
-            const fixedMarkdown = markdown.replace(/!\[([^\]]*)\]\(assets\//g, '![$1](../assets/');
+            // Fix image paths: point directly to the backend assets static server
+            const backendOrigin = API_BASE.replace(/\/api\/?$/, '');
+            const fixedMarkdown = markdown.replace(/!\[([^\]]*)\]\(assets\//g, `![$1](${backendOrigin}/assets/`);
 
             marked.setOptions({
                 renderer: renderer,

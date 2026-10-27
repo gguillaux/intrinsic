@@ -251,6 +251,9 @@ def apply_magic_formula(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         item['magic_rank_roc'] = None
         item['magic_score'] = None
         item['magic_rank'] = None
+        item['magic_pct_ey'] = None
+        item['magic_pct_roc'] = None
+        item['magic_pct_score'] = None
 
     eligible = [
         item for item in data
@@ -277,9 +280,17 @@ def apply_magic_formula(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             curr_rank = i + 1
         item['magic_rank_roc'] = curr_rank
 
-    # 3. Combined score
+    # 3. Percentiles and combined score
+    n_eligible = len(eligible)
     for item in eligible:
         item['magic_score'] = item['magic_rank_ey'] + item['magic_rank_roc']
+        if n_eligible > 1:
+            item['magic_pct_ey'] = round(100.0 * (1.0 - (item['magic_rank_ey'] - 1) / (n_eligible - 1)), 1)
+            item['magic_pct_roc'] = round(100.0 * (1.0 - (item['magic_rank_roc'] - 1) / (n_eligible - 1)), 1)
+        else:
+            item['magic_pct_ey'] = 100.0
+            item['magic_pct_roc'] = 100.0
+        item['magic_pct_score'] = round((item['magic_pct_ey'] + item['magic_pct_roc']) / 2.0, 1)
 
     # 4. Final Magic Rank: lower score is better; ties broken by higher ebit_ev, then roc_gb
     sorted_final = sorted(

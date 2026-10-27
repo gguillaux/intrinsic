@@ -24,3 +24,15 @@ async def test_get_stocks_mocked(async_client: AsyncClient):
         assert len(data) == 1
         assert data[0]["ticker"] == "MOCK3.SA"
         assert data[0]["price"] == 10.0
+
+@pytest.mark.asyncio
+async def test_get_readme(async_client: AsyncClient):
+    response = await async_client.get("/api/readme")
+    assert response.status_code == 200
+    assert "Intrinsic Valuation Dashboard" in response.text
+
+@pytest.mark.asyncio
+async def test_assets_static_mount(async_client: AsyncClient):
+    response = await async_client.get("/assets/tab_br-stocks.png")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"

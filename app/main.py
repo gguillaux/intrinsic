@@ -53,7 +53,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+import os
+from starlette.staticfiles import StaticFiles
+
 app.include_router(routes.router, prefix="/api")
+
+# Mount root assets directory for markdown documentation images
+assets_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
+if os.path.exists(assets_dir):
+    app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
 @app.get("/")
 def read_root():

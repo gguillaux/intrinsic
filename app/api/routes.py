@@ -1,6 +1,8 @@
+import os
 import logging
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
 from ..adapters.factories import DataProviderFactory, ValuationEngineFactory
@@ -150,3 +152,16 @@ async def update_cache_config(req: CacheConfigRequest):
 async def clear_cache():
     ParsedMetricsCache.delete().execute()
     return {"status": "success", "message": "Cache cleared"}
+
+
+# --- Documentation Endpoint ---
+
+@router.get("/readme", response_class=PlainTextResponse)
+def get_readme():
+    """Serves the raw README.md content for the About App tab."""
+    readme_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "README.md")
+    try:
+        with open(readme_path, "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return PlainTextResponse("README.md not found.", status_code=404)

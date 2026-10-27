@@ -185,21 +185,33 @@ class TestApplyMagicFormula:
         assert by_ticker["A"]["magic_rank_roc"] == 2
         assert by_ticker["A"]["magic_score"] == 3
         assert by_ticker["A"]["magic_rank"] == 1
+        assert by_ticker["A"]["magic_pct_ey"] == 100.0
+        assert by_ticker["A"]["magic_pct_roc"] == 66.7
+        assert by_ticker["A"]["magic_pct_score"] in (83.3, 83.4)
 
         assert by_ticker["B"]["magic_rank_ey"] == 3
         assert by_ticker["B"]["magic_rank_roc"] == 1
         assert by_ticker["B"]["magic_score"] == 4
         assert by_ticker["B"]["magic_rank"] == 2
+        assert by_ticker["B"]["magic_pct_ey"] == 33.3
+        assert by_ticker["B"]["magic_pct_roc"] == 100.0
+        assert by_ticker["B"]["magic_pct_score"] in (66.6, 66.7)
 
         assert by_ticker["C"]["magic_rank_ey"] == 2
         assert by_ticker["C"]["magic_rank_roc"] == 3
         assert by_ticker["C"]["magic_score"] == 5
         assert by_ticker["C"]["magic_rank"] == 3
+        assert by_ticker["C"]["magic_pct_ey"] == 66.7
+        assert by_ticker["C"]["magic_pct_roc"] == 33.3
+        assert by_ticker["C"]["magic_pct_score"] == 50.0
 
         assert by_ticker["D"]["magic_rank_ey"] == 4
         assert by_ticker["D"]["magic_rank_roc"] == 4
         assert by_ticker["D"]["magic_score"] == 8
         assert by_ticker["D"]["magic_rank"] == 4
+        assert by_ticker["D"]["magic_pct_ey"] == 0.0
+        assert by_ticker["D"]["magic_pct_roc"] == 0.0
+        assert by_ticker["D"]["magic_pct_score"] == 0.0
 
     def test_ineligible_financials_and_negative_values(self):
         stocks = [
@@ -212,10 +224,22 @@ class TestApplyMagicFormula:
         by_ticker = {item["ticker"]: item for item in res}
 
         assert by_ticker["NORMAL"]["magic_rank"] == 1
+        assert by_ticker["NORMAL"]["magic_pct_score"] == 100.0  # Single eligible stock
         assert by_ticker["BANK"]["magic_rank"] is None
         assert by_ticker["BANK"]["magic_score"] is None
+        assert by_ticker["BANK"]["magic_pct_score"] is None
         assert by_ticker["LOSS"]["magic_rank"] is None
+        assert by_ticker["LOSS"]["magic_pct_score"] is None
         assert by_ticker["NO_EV"]["magic_rank"] is None
+        assert by_ticker["NO_EV"]["magic_pct_score"] is None
+
+    def test_single_eligible_stock(self):
+        stocks = [{"ticker": "SOLO", "ebit_ev": 15.0, "roc_gb": 30.0}]
+        res = apply_magic_formula(stocks)
+        assert res[0]["magic_rank"] == 1
+        assert res[0]["magic_pct_ey"] == 100.0
+        assert res[0]["magic_pct_roc"] == 100.0
+        assert res[0]["magic_pct_score"] == 100.0
 
     def test_tie_breaking_by_earnings_yield(self):
         # Tie in magic_score (score = 3):
@@ -232,4 +256,6 @@ class TestApplyMagicFormula:
         assert by_ticker["T2"]["magic_score"] == 3
         assert by_ticker["T1"]["magic_rank"] == 1
         assert by_ticker["T2"]["magic_rank"] == 2
+        assert by_ticker["T1"]["magic_pct_score"] == 50.0
+        assert by_ticker["T2"]["magic_pct_score"] == 50.0
 

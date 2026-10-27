@@ -45,6 +45,9 @@ class StockMetrics:
     magic_rank_roc: Optional[int] = None     # Cross-sectional rank on ROC (1 = best)
     magic_score: Optional[int] = None        # magic_rank_ey + magic_rank_roc
     magic_rank: Optional[int] = None         # Final Magic Formula rank (1 = best)
+    magic_pct_ey: Optional[float] = None     # Percentile rank on EBIT/EV (0-100, 100 = best)
+    magic_pct_roc: Optional[float] = None    # Percentile rank on ROC (0-100, 100 = best)
+    magic_pct_score: Optional[float] = None  # Normalized composite average (magic_pct_ey + magic_pct_roc) / 2
     # Computed / ranking fields
     total_return_12m: Optional[float] = None
     rank_score: Optional[float] = None
